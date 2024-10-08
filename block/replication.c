@@ -22,7 +22,8 @@
 #include "qapi/error.h"
 #include "replication.h"
 
-typedef struct BDRVReplicationState {
+typedef struct BDRVReplicationState
+{
     ReplicationMode mode;
     int replication_state;
     BdrvChild *active_disk;
@@ -36,12 +37,13 @@ typedef struct BDRVReplicationState {
     int error;
 } BDRVReplicationState;
 
-enum {
-    BLOCK_REPLICATION_NONE,             /* block replication is not started */
-    BLOCK_REPLICATION_RUNNING,          /* block replication is running */
-    BLOCK_REPLICATION_FAILOVER,         /* failover is running in background */
-    BLOCK_REPLICATION_FAILOVER_FAILED,  /* failover failed */
-    BLOCK_REPLICATION_DONE,             /* block replication is done */
+enum
+{
+    BLOCK_REPLICATION_NONE,            /* block replication is not started */
+    BLOCK_REPLICATION_RUNNING,         /* block replication is running */
+    BLOCK_REPLICATION_FAILOVER,        /* failover is running in background */
+    BLOCK_REPLICATION_FAILOVER_FAILED, /* failover failed */
+    BLOCK_REPLICATION_DONE,            /* block replication is done */
 };
 
 static void replication_start(ReplicationState *rs, ReplicationMode mode,
@@ -51,8 +53,8 @@ static void replication_get_error(ReplicationState *rs, Error **errp);
 static void replication_stop(ReplicationState *rs, bool failover,
                              Error **errp);
 
-#define REPLICATION_MODE        "mode"
-#define REPLICATION_TOP_ID      "top-id"
+#define REPLICATION_MODE "mode"
+#define REPLICATION_TOP_ID "top-id"
 static QemuOptsList replication_runtime_opts = {
     .name = "replication",
     .head = QTAILQ_HEAD_INITIALIZER(replication_runtime_opts.head),
@@ -65,8 +67,7 @@ static QemuOptsList replication_runtime_opts = {
             .name = REPLICATION_TOP_ID,
             .type = QEMU_OPT_STRING,
         },
-        { /* end of list */ }
-    },
+        {/* end of list */}},
 };
 
 static ReplicationOps replication_ops = {
@@ -89,32 +90,41 @@ static int replication_open(BlockDriverState *bs, QDict *options,
     ret = -EINVAL;
     opts = qemu_opts_create(&replication_runtime_opts, NULL, 0, &error_abort);
     qemu_opts_absorb_qdict(opts, options, &local_err);
-    if (local_err) {
+    if (local_err)
+    {
         goto fail;
     }
 
     mode = qemu_opt_get(opts, REPLICATION_MODE);
-    if (!mode) {
+    if (!mode)
+    {
         error_setg(&local_err, "Missing the option mode");
         goto fail;
     }
 
-    if (!strcmp(mode, "primary")) {
+    if (!strcmp(mode, "primary"))
+    {
         s->mode = REPLICATION_MODE_PRIMARY;
         top_id = qemu_opt_get(opts, REPLICATION_TOP_ID);
-        if (top_id) {
+        if (top_id)
+        {
             error_setg(&local_err, "The primary side does not support option top-id");
             goto fail;
         }
-    } else if (!strcmp(mode, "secondary")) {
+    }
+    else if (!strcmp(mode, "secondary"))
+    {
         s->mode = REPLICATION_MODE_SECONDARY;
         top_id = qemu_opt_get(opts, REPLICATION_TOP_ID);
         s->top_id = g_strdup(top_id);
-        if (!s->top_id) {
+        if (!s->top_id)
+        {
             error_setg(&local_err, "Missing the option top-id");
             goto fail;
         }
-    } else {
+    }
+    else
+    {
         error_setg(&local_err,
                    "The option mode's value should be primary or secondary");
         goto fail;
@@ -135,14 +145,17 @@ static void replication_close(BlockDriverState *bs)
 {
     BDRVReplicationState *s = bs->opaque;
 
-    if (s->replication_state == BLOCK_REPLICATION_RUNNING) {
+    if (s->replication_state == BLOCK_REPLICATION_RUNNING)
+    {
         replication_stop(s->rs, false, NULL);
     }
-    if (s->replication_state == BLOCK_REPLICATION_FAILOVER) {
+    if (s->replication_state == BLOCK_REPLICATION_FAILOVER)
+    {
         block_job_cancel_sync(s->active_disk->bs->job);
     }
 
-    if (s->mode == REPLICATION_MODE_SECONDARY) {
+    if (s->mode == REPLICATION_MODE_SECONDARY)
+    {
         g_free(s->top_id);
     }
 
@@ -156,7 +169,8 @@ static int64_t replication_getlength(BlockDriverState *bs)
 
 static int replication_get_io_status(BDRVReplicationState *s)
 {
-    switch (s->replication_state) {
+    switch (s->replication_state)
+    {
     case BLOCK_REPLICATION_NONE:
         return -EIO;
     case BLOCK_REPLICATION_RUNNING:
@@ -178,11 +192,13 @@ static int replication_get_io_status(BDRVReplicationState *s)
 
 static int replication_return_value(BDRVReplicationState *s, int ret)
 {
-    if (s->mode == REPLICATION_MODE_SECONDARY) {
+    if (s->mode == REPLICATION_MODE_SECONDARY)
+    {
         return ret;
     }
 
-    if (ret < 0) {
+    if (ret < 0)
+    {
         s->error = ret;
         ret = 0;
     }
@@ -201,21 +217,25 @@ static coroutine_fn int replication_co_readv(BlockDriverState *bs,
     CowRequest req;
     int ret;
 
-    if (s->mode == REPLICATION_MODE_PRIMARY) {
+    if (s->mode == REPLICATION_MODE_PRIMARY)
+    {
         /* We only use it to forward primary write requests */
         return -EIO;
     }
 
     ret = replication_get_io_status(s);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         return ret;
     }
 
-    if (child && child->bs) {
+    if (child && child->bs)
+    {
         job = child->bs->job;
     }
 
-    if (job) {
+    if (job)
+    {
         backup_wait_for_overlapping_requests(child->bs->job, sector_num,
                                              remaining_sectors);
         backup_cow_request_begin(&req, child->bs->job, sector_num,
@@ -245,11 +265,13 @@ static coroutine_fn int replication_co_writev(BlockDriverState *bs,
     int ret, n;
 
     ret = replication_get_io_status(s);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto out;
     }
 
-    if (ret == 0) {
+    if (ret == 0)
+    {
         ret = bdrv_co_writev(top, sector_num,
                              remaining_sectors, qiov);
         return replication_return_value(s, ret);
@@ -260,10 +282,12 @@ static coroutine_fn int replication_co_writev(BlockDriverState *bs,
      * have already been allocated in active disk/hidden disk.
      */
     qemu_iovec_init(&hd_qiov, qiov->niov);
-    while (remaining_sectors > 0) {
+    while (remaining_sectors > 0)
+    {
         ret = bdrv_is_allocated_above(top->bs, base->bs, sector_num,
                                       remaining_sectors, &n);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto out1;
         }
 
@@ -272,7 +296,8 @@ static coroutine_fn int replication_co_writev(BlockDriverState *bs,
 
         target = ret ? top : base;
         ret = bdrv_co_writev(target, sector_num, n, &hd_qiov);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto out1;
         }
 
@@ -298,25 +323,29 @@ static void secondary_do_checkpoint(BDRVReplicationState *s, Error **errp)
     Error *local_err = NULL;
     int ret;
 
-    if (!s->secondary_disk->bs->job) {
+    if (!s->secondary_disk->bs->job)
+    {
         error_setg(errp, "Backup job was cancelled unexpectedly");
         return;
     }
 
     backup_do_checkpoint(s->secondary_disk->bs->job, &local_err);
-    if (local_err) {
+    if (local_err)
+    {
         error_propagate(errp, local_err);
         return;
     }
 
     ret = s->active_disk->bs->drv->bdrv_make_empty(s->active_disk->bs);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         error_setg(errp, "Cannot make active disk empty");
         return;
     }
 
     ret = s->hidden_disk->bs->drv->bdrv_make_empty(s->hidden_disk->bs);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         error_setg(errp, "Cannot make hidden disk empty");
         return;
     }
@@ -331,35 +360,41 @@ static void reopen_backing_file(BlockDriverState *bs, bool writable,
     int new_hidden_flags, new_secondary_flags;
     Error *local_err = NULL;
 
-    if (writable) {
+    if (writable)
+    {
         orig_hidden_flags = s->orig_hidden_flags =
-                                bdrv_get_flags(s->hidden_disk->bs);
+            bdrv_get_flags(s->hidden_disk->bs);
         new_hidden_flags = (orig_hidden_flags | BDRV_O_RDWR) &
-                                                    ~BDRV_O_INACTIVE;
+                           ~BDRV_O_INACTIVE;
         orig_secondary_flags = s->orig_secondary_flags =
-                                bdrv_get_flags(s->secondary_disk->bs);
+            bdrv_get_flags(s->secondary_disk->bs);
         new_secondary_flags = (orig_secondary_flags | BDRV_O_RDWR) &
-                                                     ~BDRV_O_INACTIVE;
-    } else {
+                              ~BDRV_O_INACTIVE;
+    }
+    else
+    {
         orig_hidden_flags = (s->orig_hidden_flags | BDRV_O_RDWR) &
-                                                    ~BDRV_O_INACTIVE;
+                            ~BDRV_O_INACTIVE;
         new_hidden_flags = s->orig_hidden_flags;
         orig_secondary_flags = (s->orig_secondary_flags | BDRV_O_RDWR) &
-                                                    ~BDRV_O_INACTIVE;
+                               ~BDRV_O_INACTIVE;
         new_secondary_flags = s->orig_secondary_flags;
     }
 
-    if (orig_hidden_flags != new_hidden_flags) {
+    if (orig_hidden_flags != new_hidden_flags)
+    {
         reopen_queue = bdrv_reopen_queue(reopen_queue, s->hidden_disk->bs, NULL,
                                          new_hidden_flags);
     }
 
-    if (!(orig_secondary_flags & BDRV_O_RDWR)) {
+    if (!(orig_secondary_flags & BDRV_O_RDWR))
+    {
         reopen_queue = bdrv_reopen_queue(reopen_queue, s->secondary_disk->bs,
                                          NULL, new_secondary_flags);
     }
 
-    if (reopen_queue) {
+    if (reopen_queue)
+    {
         bdrv_reopen_multiple(bdrv_get_aio_context(bs),
                              reopen_queue, &local_err);
         error_propagate(errp, local_err);
@@ -372,7 +407,8 @@ static void backup_job_cleanup(BlockDriverState *bs)
     BlockDriverState *top_bs;
 
     top_bs = bdrv_lookup_bs(s->top_id, s->top_id, NULL);
-    if (!top_bs) {
+    if (!top_bs)
+    {
         return;
     }
     bdrv_op_unblock_all(top_bs, s->blocker);
@@ -385,7 +421,8 @@ static void backup_job_completed(void *opaque, int ret)
     BlockDriverState *bs = opaque;
     BDRVReplicationState *s = bs->opaque;
 
-    if (s->replication_state != BLOCK_REPLICATION_FAILOVER) {
+    if (s->replication_state != BLOCK_REPLICATION_FAILOVER)
+    {
         /* The backup job is cancelled unexpectedly */
         s->error = -EIO;
     }
@@ -398,13 +435,16 @@ static bool check_top_bs(BlockDriverState *top_bs, BlockDriverState *bs)
     BdrvChild *child;
 
     /* The bs itself is the top_bs */
-    if (top_bs == bs) {
+    if (top_bs == bs)
+    {
         return true;
     }
 
     /* Iterate over top_bs's children */
-    QLIST_FOREACH(child, &top_bs->children, next) {
-        if (child->bs == bs || check_top_bs(child->bs, bs)) {
+    QLIST_FOREACH(child, &top_bs->children, next)
+    {
+        if (child->bs == bs || check_top_bs(child->bs, bs))
+        {
             return true;
         }
     }
@@ -427,40 +467,47 @@ static void replication_start(ReplicationState *rs, ReplicationMode mode,
     aio_context_acquire(aio_context);
     s = bs->opaque;
 
-    if (s->replication_state != BLOCK_REPLICATION_NONE) {
+    if (s->replication_state != BLOCK_REPLICATION_NONE)
+    {
         error_setg(errp, "Block replication is running or done");
         aio_context_release(aio_context);
         return;
     }
 
-    if (s->mode != mode) {
+    if (s->mode != mode)
+    {
         error_setg(errp, "The parameter mode's value is invalid, needs %d,"
-                   " but got %d", s->mode, mode);
+                         " but got %d",
+                   s->mode, mode);
         aio_context_release(aio_context);
         return;
     }
 
-    switch (s->mode) {
+    switch (s->mode)
+    {
     case REPLICATION_MODE_PRIMARY:
         break;
     case REPLICATION_MODE_SECONDARY:
         s->active_disk = bs->file;
         if (!s->active_disk || !s->active_disk->bs ||
-                                    !s->active_disk->bs->backing) {
+            !s->active_disk->bs->backing)
+        {
             error_setg(errp, "Active disk doesn't have backing file");
             aio_context_release(aio_context);
             return;
         }
 
         s->hidden_disk = s->active_disk->bs->backing;
-        if (!s->hidden_disk->bs || !s->hidden_disk->bs->backing) {
+        if (!s->hidden_disk->bs || !s->hidden_disk->bs->backing)
+        {
             error_setg(errp, "Hidden disk doesn't have backing file");
             aio_context_release(aio_context);
             return;
         }
 
         s->secondary_disk = s->hidden_disk->bs->backing;
-        if (!s->secondary_disk->bs || !bdrv_has_blk(s->secondary_disk->bs)) {
+        if (!s->secondary_disk->bs || !bdrv_has_blk(s->secondary_disk->bs))
+        {
             error_setg(errp, "The secondary disk doesn't have block backend");
             aio_context_release(aio_context);
             return;
@@ -471,15 +518,17 @@ static void replication_start(ReplicationState *rs, ReplicationMode mode,
         hidden_length = bdrv_getlength(s->hidden_disk->bs);
         disk_length = bdrv_getlength(s->secondary_disk->bs);
         if (active_length < 0 || hidden_length < 0 || disk_length < 0 ||
-            active_length != hidden_length || hidden_length != disk_length) {
+            active_length != hidden_length || hidden_length != disk_length)
+        {
             error_setg(errp, "Active disk, hidden disk, secondary disk's length"
-                       " are not the same");
+                             " are not the same");
             aio_context_release(aio_context);
             return;
         }
 
         if (!s->active_disk->bs->drv->bdrv_make_empty ||
-            !s->hidden_disk->bs->drv->bdrv_make_empty) {
+            !s->hidden_disk->bs->drv->bdrv_make_empty)
+        {
             error_setg(errp,
                        "Active disk or hidden disk doesn't support make_empty");
             aio_context_release(aio_context);
@@ -488,7 +537,8 @@ static void replication_start(ReplicationState *rs, ReplicationMode mode,
 
         /* reopen the backing file in r/w mode */
         reopen_backing_file(bs, true, &local_err);
-        if (local_err) {
+        if (local_err)
+        {
             error_propagate(errp, local_err);
             aio_context_release(aio_context);
             return;
@@ -500,7 +550,8 @@ static void replication_start(ReplicationState *rs, ReplicationMode mode,
 
         top_bs = bdrv_lookup_bs(s->top_id, s->top_id, NULL);
         if (!top_bs || !bdrv_is_root_node(top_bs) ||
-            !check_top_bs(top_bs, bs)) {
+            !check_top_bs(top_bs, bs))
+        {
             error_setg(errp, "No top_bs or it is invalid");
             reopen_backing_file(bs, false, NULL);
             aio_context_release(aio_context);
@@ -514,7 +565,8 @@ static void replication_start(ReplicationState *rs, ReplicationMode mode,
                                 BLOCKDEV_ON_ERROR_REPORT,
                                 BLOCKDEV_ON_ERROR_REPORT, BLOCK_JOB_INTERNAL,
                                 backup_job_completed, bs, NULL, &local_err);
-        if (local_err) {
+        if (local_err)
+        {
             error_propagate(errp, local_err);
             backup_job_cleanup(bs);
             aio_context_release(aio_context);
@@ -529,7 +581,8 @@ static void replication_start(ReplicationState *rs, ReplicationMode mode,
 
     s->replication_state = BLOCK_REPLICATION_RUNNING;
 
-    if (s->mode == REPLICATION_MODE_SECONDARY) {
+    if (s->mode == REPLICATION_MODE_SECONDARY)
+    {
         secondary_do_checkpoint(s, errp);
     }
 
@@ -547,7 +600,8 @@ static void replication_do_checkpoint(ReplicationState *rs, Error **errp)
     aio_context_acquire(aio_context);
     s = bs->opaque;
 
-    if (s->mode == REPLICATION_MODE_SECONDARY) {
+    if (s->mode == REPLICATION_MODE_SECONDARY)
+    {
         secondary_do_checkpoint(s, errp);
     }
     aio_context_release(aio_context);
@@ -563,13 +617,15 @@ static void replication_get_error(ReplicationState *rs, Error **errp)
     aio_context_acquire(aio_context);
     s = bs->opaque;
 
-    if (s->replication_state != BLOCK_REPLICATION_RUNNING) {
+    if (s->replication_state != BLOCK_REPLICATION_RUNNING)
+    {
         error_setg(errp, "Block replication is not running");
         aio_context_release(aio_context);
         return;
     }
 
-    if (s->error) {
+    if (s->error)
+    {
         error_setg(errp, "I/O error occurred");
         aio_context_release(aio_context);
         return;
@@ -582,7 +638,8 @@ static void replication_done(void *opaque, int ret)
     BlockDriverState *bs = opaque;
     BDRVReplicationState *s = bs->opaque;
 
-    if (ret == 0) {
+    if (ret == 0)
+    {
         s->replication_state = BLOCK_REPLICATION_DONE;
 
         /* refresh top bs's filename */
@@ -591,7 +648,9 @@ static void replication_done(void *opaque, int ret)
         s->secondary_disk = NULL;
         s->hidden_disk = NULL;
         s->error = 0;
-    } else {
+    }
+    else
+    {
         s->replication_state = BLOCK_REPLICATION_FAILOVER_FAILED;
         s->error = -EIO;
     }
@@ -607,13 +666,15 @@ static void replication_stop(ReplicationState *rs, bool failover, Error **errp)
     aio_context_acquire(aio_context);
     s = bs->opaque;
 
-    if (s->replication_state != BLOCK_REPLICATION_RUNNING) {
+    if (s->replication_state != BLOCK_REPLICATION_RUNNING)
+    {
         error_setg(errp, "Block replication is not running");
         aio_context_release(aio_context);
         return;
     }
 
-    switch (s->mode) {
+    switch (s->mode)
+    {
     case REPLICATION_MODE_PRIMARY:
         s->replication_state = BLOCK_REPLICATION_DONE;
         s->error = 0;
@@ -624,11 +685,13 @@ static void replication_stop(ReplicationState *rs, bool failover, Error **errp)
          * before the BDS is closed, because we will access hidden
          * disk, secondary disk in backup_job_completed().
          */
-        if (s->secondary_disk->bs->job) {
+        if (s->secondary_disk->bs->job)
+        {
             block_job_cancel_sync(s->secondary_disk->bs->job);
         }
 
-        if (!failover) {
+        if (!failover)
+        {
             secondary_do_checkpoint(s, errp);
             s->replication_state = BLOCK_REPLICATION_DONE;
             aio_context_release(aio_context);
@@ -648,21 +711,21 @@ static void replication_stop(ReplicationState *rs, bool failover, Error **errp)
 }
 
 BlockDriver bdrv_replication = {
-    .format_name                = "replication",
-    .protocol_name              = "replication",
-    .instance_size              = sizeof(BDRVReplicationState),
+    .format_name = "replication",
+    .protocol_name = "replication",
+    .instance_size = sizeof(BDRVReplicationState),
 
-    .bdrv_open                  = replication_open,
-    .bdrv_close                 = replication_close,
+    .bdrv_open = replication_open,
+    .bdrv_close = replication_close,
 
-    .bdrv_getlength             = replication_getlength,
-    .bdrv_co_readv              = replication_co_readv,
-    .bdrv_co_writev             = replication_co_writev,
+    .bdrv_getlength = replication_getlength,
+    .bdrv_co_readv = replication_co_readv,
+    .bdrv_co_writev = replication_co_writev,
 
-    .is_filter                  = true,
+    .is_filter = true,
     .bdrv_recurse_is_first_non_filter = replication_recurse_is_first_non_filter,
 
-    .has_variable_length        = true,
+    .has_variable_length = true,
 };
 
 static void bdrv_replication_init(void)

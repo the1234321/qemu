@@ -53,18 +53,21 @@
  * access some other BlockBackend's timers only after verifying that
  * that BlockBackend has throttled requests in the queue.
  */
-typedef struct ThrottleGroup {
+typedef struct ThrottleGroup
+{
     char *name; /* This is constant during the lifetime of the group */
 
     QemuMutex lock; /* This lock protects the following four fields */
     ThrottleState ts;
-    QLIST_HEAD(, BlockBackendPublic) head;
+    QLIST_HEAD(, BlockBackendPublic)
+    head;
     BlockBackend *tokens[2];
     bool any_timer_armed[2];
 
     /* These two are protected by the global throttle_groups_lock */
     unsigned refcount;
-    QTAILQ_ENTRY(ThrottleGroup) list;
+    QTAILQ_ENTRY(ThrottleGroup)
+    list;
 } ThrottleGroup;
 
 static QemuMutex throttle_groups_lock;
@@ -87,15 +90,18 @@ ThrottleState *throttle_group_incref(const char *name)
     qemu_mutex_lock(&throttle_groups_lock);
 
     /* Look for an existing group with that name */
-    QTAILQ_FOREACH(iter, &throttle_groups, list) {
-        if (!strcmp(name, iter->name)) {
+    QTAILQ_FOREACH(iter, &throttle_groups, list)
+    {
+        if (!strcmp(name, iter->name))
+        {
             tg = iter;
             break;
         }
     }
 
     /* Create a new one if not found */
-    if (!tg) {
+    if (!tg)
+    {
         tg = g_new0(ThrottleGroup, 1);
         tg->name = g_strdup(name);
         qemu_mutex_init(&tg->lock);
@@ -124,7 +130,8 @@ void throttle_group_unref(ThrottleState *ts)
     ThrottleGroup *tg = container_of(ts, ThrottleGroup, ts);
 
     qemu_mutex_lock(&throttle_groups_lock);
-    if (--tg->refcount == 0) {
+    if (--tg->refcount == 0)
+    {
         QTAILQ_REMOVE(&throttle_groups, tg, list);
         qemu_mutex_destroy(&tg->lock);
         g_free(tg->name);
@@ -161,7 +168,8 @@ static BlockBackend *throttle_group_next_blk(BlockBackend *blk)
     ThrottleGroup *tg = container_of(ts, ThrottleGroup, ts);
     BlockBackendPublic *next = QLIST_NEXT(blkp, round_robin);
 
-    if (!next) {
+    if (!next)
+    {
         next = QLIST_FIRST(&tg->head);
     }
 
@@ -204,7 +212,8 @@ static BlockBackend *next_throttle_token(BlockBackend *blk, bool is_write)
 
     /* get next bs round in round robin style */
     token = throttle_group_next_blk(token);
-    while (token != start && !blk_has_pending_reqs(token, is_write)) {
+    while (token != start && !blk_has_pending_reqs(token, is_write))
+    {
         token = throttle_group_next_blk(token);
     }
 
@@ -212,7 +221,8 @@ static BlockBackend *next_throttle_token(BlockBackend *blk, bool is_write)
      * then decide the token is the current bs because chances are
      * the current bs get the current request queued.
      */
-    if (token == start && !blk_has_pending_reqs(token, is_write)) {
+    if (token == start && !blk_has_pending_reqs(token, is_write))
+    {
         token = blk;
     }
 
@@ -240,19 +250,22 @@ static bool throttle_group_schedule_timer(BlockBackend *blk, bool is_write)
     ThrottleGroup *tg = container_of(ts, ThrottleGroup, ts);
     bool must_wait;
 
-    if (blkp->io_limits_disabled) {
+    if (blkp->io_limits_disabled)
+    {
         return false;
     }
 
     /* Check if any of the timers in this group is already armed */
-    if (tg->any_timer_armed[is_write]) {
+    if (tg->any_timer_armed[is_write])
+    {
         return true;
     }
 
     must_wait = throttle_schedule_timer(ts, tt, is_write);
 
     /* If a timer just got armed, set blk as the current token */
-    if (must_wait) {
+    if (must_wait)
+    {
         tg->tokens[is_write] = blk;
         tg->any_timer_armed[is_write] = true;
     }
@@ -276,7 +289,8 @@ static void schedule_next_request(BlockBackend *blk, bool is_write)
 
     /* Check if there's any pending request to schedule next */
     token = next_throttle_token(blk, is_write);
-    if (!blk_has_pending_reqs(token, is_write)) {
+    if (!blk_has_pending_reqs(token, is_write))
+    {
         return;
     }
 
@@ -284,12 +298,16 @@ static void schedule_next_request(BlockBackend *blk, bool is_write)
     must_wait = throttle_group_schedule_timer(token, is_write);
 
     /* If it doesn't have to wait, queue it for immediate execution */
-    if (!must_wait) {
+    if (!must_wait)
+    {
         /* Give preference to requests from the current blk */
         if (qemu_in_coroutine() &&
-            qemu_co_queue_next(&blkp->throttled_reqs[is_write])) {
+            qemu_co_queue_next(&blkp->throttled_reqs[is_write]))
+        {
             token = blk;
-        } else {
+        }
+        else
+        {
             ThrottleTimers *tt = &blk_get_public(token)->throttle_timers;
             int64_t now = qemu_clock_get_ns(tt->clock_type);
             timer_mod(tt->timers[is_write], now + 1);
@@ -323,7 +341,8 @@ void coroutine_fn throttle_group_co_io_limits_intercept(BlockBackend *blk,
     must_wait = throttle_group_schedule_timer(token, is_write);
 
     /* Wait if there's a timer set or queued requests of this type */
-    if (must_wait || blkp->pending_reqs[is_write]) {
+    if (must_wait || blkp->pending_reqs[is_write])
+    {
         blkp->pending_reqs[is_write]++;
         qemu_mutex_unlock(&tg->lock);
         qemu_co_queue_wait(&blkp->throttled_reqs[is_write]);
@@ -345,8 +364,10 @@ void throttle_group_restart_blk(BlockBackend *blk)
     BlockBackendPublic *blkp = blk_get_public(blk);
     int i;
 
-    for (i = 0; i < 2; i++) {
-        while (qemu_co_enter_next(&blkp->throttled_reqs[i])) {
+    for (i = 0; i < 2; i++)
+    {
+        while (qemu_co_enter_next(&blkp->throttled_reqs[i]))
+        {
             ;
         }
     }
@@ -367,10 +388,12 @@ void throttle_group_config(BlockBackend *blk, ThrottleConfig *cfg)
     ThrottleGroup *tg = container_of(ts, ThrottleGroup, ts);
     qemu_mutex_lock(&tg->lock);
     /* throttle_config() cancels the timers */
-    if (timer_pending(tt->timers[0])) {
+    if (timer_pending(tt->timers[0]))
+    {
         tg->any_timer_armed[0] = false;
     }
-    if (timer_pending(tt->timers[1])) {
+    if (timer_pending(tt->timers[1]))
+    {
         tg->any_timer_armed[1] = false;
     }
     throttle_config(ts, tt, cfg);
@@ -420,7 +443,8 @@ static void timer_cb(BlockBackend *blk, bool is_write)
 
     /* If the request queue was empty then we have to take care of
      * scheduling the next one */
-    if (empty_queue) {
+    if (empty_queue)
+    {
         qemu_mutex_lock(&tg->lock);
         schedule_next_request(blk, is_write);
         qemu_mutex_unlock(&tg->lock);
@@ -452,7 +476,8 @@ void throttle_group_register_blk(BlockBackend *blk, const char *groupname)
     ThrottleGroup *tg = container_of(ts, ThrottleGroup, ts);
     int clock_type = QEMU_CLOCK_REALTIME;
 
-    if (qtest_enabled()) {
+    if (qtest_enabled())
+    {
         /* For testing block IO throttling only */
         clock_type = QEMU_CLOCK_VIRTUAL;
     }
@@ -461,8 +486,10 @@ void throttle_group_register_blk(BlockBackend *blk, const char *groupname)
 
     qemu_mutex_lock(&tg->lock);
     /* If the ThrottleGroup is new set this BlockBackend as the token */
-    for (i = 0; i < 2; i++) {
-        if (!tg->tokens[i]) {
+    for (i = 0; i < 2; i++)
+    {
+        if (!tg->tokens[i])
+        {
             tg->tokens[i] = blk;
         }
     }
@@ -500,11 +527,14 @@ void throttle_group_unregister_blk(BlockBackend *blk)
     assert(qemu_co_queue_empty(&blkp->throttled_reqs[1]));
 
     qemu_mutex_lock(&tg->lock);
-    for (i = 0; i < 2; i++) {
-        if (tg->tokens[i] == blk) {
+    for (i = 0; i < 2; i++)
+    {
+        if (tg->tokens[i] == blk)
+        {
             BlockBackend *token = throttle_group_next_blk(blk);
             /* Take care of the case where this is the last blk in the group */
-            if (token == blk) {
+            if (token == blk)
+            {
                 token = NULL;
             }
             tg->tokens[i] = token;

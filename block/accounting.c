@@ -38,7 +38,8 @@ void block_acct_init(BlockAcctStats *stats, bool account_invalid,
     stats->account_invalid = account_invalid;
     stats->account_failed = account_failed;
 
-    if (qtest_enabled()) {
+    if (qtest_enabled())
+    {
         clock_type = QEMU_CLOCK_VIRTUAL;
     }
 }
@@ -46,7 +47,8 @@ void block_acct_init(BlockAcctStats *stats, bool account_invalid,
 void block_acct_cleanup(BlockAcctStats *stats)
 {
     BlockAcctTimedStats *s, *next;
-    QSLIST_FOREACH_SAFE(s, &stats->intervals, entries, next) {
+    QSLIST_FOREACH_SAFE(s, &stats->intervals, entries, next)
+    {
         g_free(s);
     }
 }
@@ -60,18 +62,22 @@ void block_acct_add_interval(BlockAcctStats *stats, unsigned interval_length)
     s->interval_length = interval_length;
     QSLIST_INSERT_HEAD(&stats->intervals, s, entries);
 
-    for (i = 0; i < BLOCK_MAX_IOTYPE; i++) {
+    for (i = 0; i < BLOCK_MAX_IOTYPE; i++)
+    {
         timed_average_init(&s->latency[i], clock_type,
-                           (uint64_t) interval_length * NANOSECONDS_PER_SECOND);
+                           (uint64_t)interval_length * NANOSECONDS_PER_SECOND);
     }
 }
 
 BlockAcctTimedStats *block_acct_interval_next(BlockAcctStats *stats,
                                               BlockAcctTimedStats *s)
 {
-    if (s == NULL) {
+    if (s == NULL)
+    {
         return QSLIST_FIRST(&stats->intervals);
-    } else {
+    }
+    else
+    {
         return QSLIST_NEXT(s, entries);
     }
 }
@@ -92,7 +98,8 @@ void block_acct_done(BlockAcctStats *stats, BlockAcctCookie *cookie)
     int64_t time_ns = qemu_clock_get_ns(clock_type);
     int64_t latency_ns = time_ns - cookie->start_time_ns;
 
-    if (qtest_enabled()) {
+    if (qtest_enabled())
+    {
         latency_ns = qtest_latency_ns;
     }
 
@@ -103,7 +110,8 @@ void block_acct_done(BlockAcctStats *stats, BlockAcctCookie *cookie)
     stats->total_time_ns[cookie->type] += latency_ns;
     stats->last_access_time_ns = time_ns;
 
-    QSLIST_FOREACH(s, &stats->intervals, entries) {
+    QSLIST_FOREACH(s, &stats->intervals, entries)
+    {
         timed_average_account(&s->latency[cookie->type], latency_ns);
     }
 }
@@ -114,19 +122,22 @@ void block_acct_failed(BlockAcctStats *stats, BlockAcctCookie *cookie)
 
     stats->failed_ops[cookie->type]++;
 
-    if (stats->account_failed) {
+    if (stats->account_failed)
+    {
         BlockAcctTimedStats *s;
         int64_t time_ns = qemu_clock_get_ns(clock_type);
         int64_t latency_ns = time_ns - cookie->start_time_ns;
 
-        if (qtest_enabled()) {
+        if (qtest_enabled())
+        {
             latency_ns = qtest_latency_ns;
         }
 
         stats->total_time_ns[cookie->type] += latency_ns;
         stats->last_access_time_ns = time_ns;
 
-        QSLIST_FOREACH(s, &stats->intervals, entries) {
+        QSLIST_FOREACH(s, &stats->intervals, entries)
+        {
             timed_average_account(&s->latency[cookie->type], latency_ns);
         }
     }
@@ -143,13 +154,14 @@ void block_acct_invalid(BlockAcctStats *stats, enum BlockAcctType type)
 
     stats->invalid_ops[type]++;
 
-    if (stats->account_invalid) {
+    if (stats->account_invalid)
+    {
         stats->last_access_time_ns = qemu_clock_get_ns(clock_type);
     }
 }
 
 void block_acct_merge_done(BlockAcctStats *stats, enum BlockAcctType type,
-                      int num_requests)
+                           int num_requests)
 {
     assert(type < BLOCK_MAX_IOTYPE);
     stats->merged[type] += num_requests;
@@ -169,5 +181,5 @@ double block_acct_queue_depth(BlockAcctTimedStats *stats,
 
     sum = timed_average_sum(&stats->latency[type], &elapsed);
 
-    return (double) sum / elapsed;
+    return (double)sum / elapsed;
 }

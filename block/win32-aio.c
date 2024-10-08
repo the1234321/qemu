@@ -34,17 +34,19 @@
 #include <winioctl.h>
 
 #define FTYPE_FILE 0
-#define FTYPE_CD     1
+#define FTYPE_CD 1
 #define FTYPE_HARDDISK 2
 
-struct QEMUWin32AIOState {
+struct QEMUWin32AIOState
+{
     HANDLE hIOCP;
     EventNotifier e;
     int count;
     bool is_aio_context_attached;
 };
 
-typedef struct QEMUWin32AIOCB {
+typedef struct QEMUWin32AIOCB
+{
     BlockAIOCB common;
     struct QEMUWin32AIOState *ctx;
     int nbytes;
@@ -59,34 +61,42 @@ typedef struct QEMUWin32AIOCB {
  * Completes an AIO request (calls the callback and frees the ACB).
  */
 static void win32_aio_process_completion(QEMUWin32AIOState *s,
-    QEMUWin32AIOCB *waiocb, DWORD count)
+                                         QEMUWin32AIOCB *waiocb, DWORD count)
 {
     int ret;
     s->count--;
 
-    if (waiocb->ov.Internal != 0) {
+    if (waiocb->ov.Internal != 0)
+    {
         ret = -EIO;
-    } else {
+    }
+    else
+    {
         ret = 0;
-        if (count < waiocb->nbytes) {
+        if (count < waiocb->nbytes)
+        {
             /* Short reads mean EOF, pad with zeros. */
-            if (waiocb->is_read) {
+            if (waiocb->is_read)
+            {
                 qemu_iovec_memset(waiocb->qiov, count, 0,
-                    waiocb->qiov->size - count);
-            } else {
+                                  waiocb->qiov->size - count);
+            }
+            else
+            {
                 ret = -EINVAL;
             }
-       }
+        }
     }
 
-    if (!waiocb->is_linear) {
-        if (ret == 0 && waiocb->is_read) {
+    if (!waiocb->is_linear)
+    {
+        if (ret == 0 && waiocb->is_read)
+        {
             QEMUIOVector *qiov = waiocb->qiov;
             iov_from_buf(qiov->iov, qiov->niov, 0, waiocb->buf, qiov->size);
         }
         qemu_vfree(waiocb->buf);
     }
-
 
     waiocb->common.cb(waiocb->common.opaque, ret);
     qemu_aio_unref(waiocb);
@@ -100,7 +110,8 @@ static void win32_aio_completion_cb(EventNotifier *e)
     OVERLAPPED *ov;
 
     event_notifier_test_and_clear(&s->e);
-    while (GetQueuedCompletionStatus(s->hIOCP, &count, &key, &ov, 0)) {
+    while (GetQueuedCompletionStatus(s->hIOCP, &count, &key, &ov, 0))
+    {
         QEMUWin32AIOCB *waiocb = container_of(ov, QEMUWin32AIOCB, ov);
 
         win32_aio_process_completion(s, waiocb, count);
@@ -108,13 +119,13 @@ static void win32_aio_completion_cb(EventNotifier *e)
 }
 
 static const AIOCBInfo win32_aiocb_info = {
-    .aiocb_size         = sizeof(QEMUWin32AIOCB),
+    .aiocb_size = sizeof(QEMUWin32AIOCB),
 };
 
 BlockAIOCB *win32_aio_submit(BlockDriverState *bs,
-        QEMUWin32AIOState *aio, HANDLE hfile,
-        int64_t sector_num, QEMUIOVector *qiov, int nb_sectors,
-        BlockCompletionFunc *cb, void *opaque, int type)
+                             QEMUWin32AIOState *aio, HANDLE hfile,
+                             int64_t sector_num, QEMUIOVector *qiov, int nb_sectors,
+                             BlockCompletionFunc *cb, void *opaque, int type)
 {
     struct QEMUWin32AIOCB *waiocb;
     uint64_t offset = sector_num * 512;
@@ -125,16 +136,21 @@ BlockAIOCB *win32_aio_submit(BlockDriverState *bs,
     waiocb->qiov = qiov;
     waiocb->is_read = (type == QEMU_AIO_READ);
 
-    if (qiov->niov > 1) {
+    if (qiov->niov > 1)
+    {
         waiocb->buf = qemu_try_blockalign(bs, qiov->size);
-        if (waiocb->buf == NULL) {
+        if (waiocb->buf == NULL)
+        {
             goto out;
         }
-        if (type & QEMU_AIO_WRITE) {
+        if (type & QEMU_AIO_WRITE)
+        {
             iov_to_buf(qiov->iov, qiov->niov, 0, waiocb->buf, qiov->size);
         }
         waiocb->is_linear = false;
-    } else {
+    }
+    else
+    {
         waiocb->buf = qiov->iov[0].iov_base;
         waiocb->is_linear = true;
     }
@@ -146,12 +162,16 @@ BlockAIOCB *win32_aio_submit(BlockDriverState *bs,
 
     aio->count++;
 
-    if (type & QEMU_AIO_READ) {
+    if (type & QEMU_AIO_READ)
+    {
         rc = ReadFile(hfile, waiocb->buf, waiocb->nbytes, NULL, &waiocb->ov);
-    } else {
+    }
+    else
+    {
         rc = WriteFile(hfile, waiocb->buf, waiocb->nbytes, NULL, &waiocb->ov);
     }
-    if(rc == 0 && GetLastError() != ERROR_IO_PENDING) {
+    if (rc == 0 && GetLastError() != ERROR_IO_PENDING)
+    {
         goto out_dec_count;
     }
     return &waiocb->common;
@@ -165,9 +185,12 @@ out:
 
 int win32_aio_attach(QEMUWin32AIOState *aio, HANDLE hfile)
 {
-    if (CreateIoCompletionPort(hfile, aio->hIOCP, (ULONG_PTR) 0, 0) == NULL) {
+    if (CreateIoCompletionPort(hfile, aio->hIOCP, (ULONG_PTR)0, 0) == NULL)
+    {
         return -EINVAL;
-    } else {
+    }
+    else
+    {
         return 0;
     }
 }
@@ -192,12 +215,14 @@ QEMUWin32AIOState *win32_aio_init(void)
     QEMUWin32AIOState *s;
 
     s = g_malloc0(sizeof(*s));
-    if (event_notifier_init(&s->e, false) < 0) {
+    if (event_notifier_init(&s->e, false) < 0)
+    {
         goto out_free_state;
     }
 
     s->hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
-    if (s->hIOCP == NULL) {
+    if (s->hIOCP == NULL)
+    {
         goto out_close_efd;
     }
 

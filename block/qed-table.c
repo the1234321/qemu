@@ -18,7 +18,8 @@
 #include "qed.h"
 #include "qemu/bswap.h"
 
-typedef struct {
+typedef struct
+{
     GenericCB gencb;
     BDRVQEDState *s;
     QEDTable *table;
@@ -35,12 +36,14 @@ static void qed_read_table_cb(void *opaque, int ret)
     int i;
 
     /* Handle I/O error */
-    if (ret) {
+    if (ret)
+    {
         goto out;
     }
 
     /* Byteswap offsets */
-    for (i = 0; i < noffsets; i++) {
+    for (i = 0; i < noffsets; i++)
+    {
         table->offsets[i] = le64_to_cpu(table->offsets[i]);
     }
 
@@ -70,12 +73,13 @@ static void qed_read_table(BDRVQEDState *s, uint64_t offset, QEDTable *table,
                    qed_read_table_cb, read_table_cb);
 }
 
-typedef struct {
+typedef struct
+{
     GenericCB gencb;
     BDRVQEDState *s;
     QEDTable *orig_table;
     QEDTable *table;
-    bool flush;             /* flush after write? */
+    bool flush; /* flush after write? */
 
     struct iovec iov;
     QEMUIOVector qiov;
@@ -90,11 +94,13 @@ static void qed_write_table_cb(void *opaque, int ret)
                              write_table_cb->flush,
                              ret);
 
-    if (ret) {
+    if (ret)
+    {
         goto out;
     }
 
-    if (write_table_cb->flush) {
+    if (write_table_cb->flush)
+    {
         /* We still need to flush first */
         write_table_cb->flush = false;
         bdrv_aio_flush(write_table_cb->s->bs, qed_write_table_cb,
@@ -146,7 +152,8 @@ static void qed_write_table(BDRVQEDState *s, uint64_t offset, QEDTable *table,
     qemu_iovec_init_external(&write_table_cb->qiov, &write_table_cb->iov, 1);
 
     /* Byteswap table */
-    for (i = start; i < end; i++) {
+    for (i = start; i < end; i++)
+    {
         uint64_t le_offset = cpu_to_le64(table->offsets[i]);
         write_table_cb->table->offsets[i - start] = le_offset;
     }
@@ -198,7 +205,8 @@ int qed_write_l1_table_sync(BDRVQEDState *s, unsigned int index,
     return ret;
 }
 
-typedef struct {
+typedef struct
+{
     GenericCB gencb;
     BDRVQEDState *s;
     uint64_t l2_offset;
@@ -213,11 +221,14 @@ static void qed_read_l2_table_cb(void *opaque, int ret)
     CachedL2Table *l2_table = request->l2_table;
     uint64_t l2_offset = read_l2_table_cb->l2_offset;
 
-    if (ret) {
+    if (ret)
+    {
         /* can't trust loaded L2 table anymore */
         qed_unref_l2_cache_entry(l2_table);
         request->l2_table = NULL;
-    } else {
+    }
+    else
+    {
         l2_table->offset = l2_offset;
 
         qed_commit_l2_cache_entry(&s->l2_cache, l2_table);
@@ -241,7 +252,8 @@ void qed_read_l2_table(BDRVQEDState *s, QEDRequest *request, uint64_t offset,
 
     /* Check for cached L2 entry */
     request->l2_table = qed_find_l2_cache_entry(&s->l2_cache, offset);
-    if (request->l2_table) {
+    if (request->l2_table)
+    {
         cb(opaque, 0);
         return;
     }

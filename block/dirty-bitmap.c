@@ -36,7 +36,8 @@
  *     A frozen bitmap cannot be renamed, deleted, anonymized, cleared, set,
  *     or enabled. A frozen bitmap can only abdicate() or reclaim().
  */
-struct BdrvDirtyBitmap {
+struct BdrvDirtyBitmap
+{
     HBitmap *bitmap;            /* Dirty sector bitmap implementation */
     HBitmap *meta;              /* Meta dirty bitmap */
     BdrvDirtyBitmap *successor; /* Anonymous child; implies frozen status */
@@ -44,10 +45,12 @@ struct BdrvDirtyBitmap {
     int64_t size;               /* Size of the bitmap (Number of sectors) */
     bool disabled;              /* Bitmap is read-only */
     int active_iterators;       /* How many iterators are active */
-    QLIST_ENTRY(BdrvDirtyBitmap) list;
+    QLIST_ENTRY(BdrvDirtyBitmap)
+    list;
 };
 
-struct BdrvDirtyBitmapIter {
+struct BdrvDirtyBitmapIter
+{
     HBitmapIter hbi;
     BdrvDirtyBitmap *bitmap;
 };
@@ -57,8 +60,10 @@ BdrvDirtyBitmap *bdrv_find_dirty_bitmap(BlockDriverState *bs, const char *name)
     BdrvDirtyBitmap *bm;
 
     assert(name);
-    QLIST_FOREACH(bm, &bs->dirty_bitmaps, list) {
-        if (bm->name && !strcmp(name, bm->name)) {
+    QLIST_FOREACH(bm, &bs->dirty_bitmaps, list)
+    {
+        if (bm->name && !strcmp(name, bm->name))
+        {
             return bm;
         }
     }
@@ -83,14 +88,16 @@ BdrvDirtyBitmap *bdrv_create_dirty_bitmap(BlockDriverState *bs,
 
     assert((granularity & (granularity - 1)) == 0);
 
-    if (name && bdrv_find_dirty_bitmap(bs, name)) {
+    if (name && bdrv_find_dirty_bitmap(bs, name))
+    {
         error_setg(errp, "Bitmap already exists: %s", name);
         return NULL;
     }
     sector_granularity = granularity >> BDRV_SECTOR_BITS;
     assert(sector_granularity);
     bitmap_size = bdrv_nb_sectors(bs);
-    if (bitmap_size < 0) {
+    if (bitmap_size < 0)
+    {
         error_setg_errno(errp, -bitmap_size, "could not get length of device");
         errno = -bitmap_size;
         return NULL;
@@ -139,8 +146,10 @@ int bdrv_dirty_bitmap_get_meta(BlockDriverState *bs,
 
     /* To optimize: we can make hbitmap to internally check the range in a
      * coarse level, or at least do it word by word. */
-    for (i = sector; i < sector + nb_sectors; i += sectors_per_bit) {
-        if (hbitmap_get(bitmap->meta, i)) {
+    for (i = sector; i < sector + nb_sectors; i += sectors_per_bit)
+    {
+        if (hbitmap_get(bitmap->meta, i))
+        {
             return true;
         }
     }
@@ -176,11 +185,16 @@ bool bdrv_dirty_bitmap_enabled(BdrvDirtyBitmap *bitmap)
 
 DirtyBitmapStatus bdrv_dirty_bitmap_status(BdrvDirtyBitmap *bitmap)
 {
-    if (bdrv_dirty_bitmap_frozen(bitmap)) {
+    if (bdrv_dirty_bitmap_frozen(bitmap))
+    {
         return DIRTY_BITMAP_STATUS_FROZEN;
-    } else if (!bdrv_dirty_bitmap_enabled(bitmap)) {
+    }
+    else if (!bdrv_dirty_bitmap_enabled(bitmap))
+    {
         return DIRTY_BITMAP_STATUS_DISABLED;
-    } else {
+    }
+    else
+    {
         return DIRTY_BITMAP_STATUS_ACTIVE;
     }
 }
@@ -195,9 +209,10 @@ int bdrv_dirty_bitmap_create_successor(BlockDriverState *bs,
     uint64_t granularity;
     BdrvDirtyBitmap *child;
 
-    if (bdrv_dirty_bitmap_frozen(bitmap)) {
+    if (bdrv_dirty_bitmap_frozen(bitmap))
+    {
         error_setg(errp, "Cannot create a successor for a bitmap that is "
-                   "currently frozen");
+                         "currently frozen");
         return -1;
     }
     assert(!bitmap->successor);
@@ -205,7 +220,8 @@ int bdrv_dirty_bitmap_create_successor(BlockDriverState *bs,
     /* Create an anonymous successor */
     granularity = bdrv_dirty_bitmap_granularity(bitmap);
     child = bdrv_create_dirty_bitmap(bs, granularity, NULL, errp);
-    if (!child) {
+    if (!child)
+    {
         return -1;
     }
 
@@ -228,9 +244,10 @@ BdrvDirtyBitmap *bdrv_dirty_bitmap_abdicate(BlockDriverState *bs,
     char *name;
     BdrvDirtyBitmap *successor = bitmap->successor;
 
-    if (successor == NULL) {
+    if (successor == NULL)
+    {
         error_setg(errp, "Cannot relinquish control if "
-                   "there's no successor present");
+                         "there's no successor present");
         return NULL;
     }
 
@@ -254,12 +271,14 @@ BdrvDirtyBitmap *bdrv_reclaim_dirty_bitmap(BlockDriverState *bs,
 {
     BdrvDirtyBitmap *successor = parent->successor;
 
-    if (!successor) {
+    if (!successor)
+    {
         error_setg(errp, "Cannot reclaim a successor when none is present");
         return NULL;
     }
 
-    if (!hbitmap_merge(parent->bitmap, successor->bitmap)) {
+    if (!hbitmap_merge(parent->bitmap, successor->bitmap))
+    {
         error_setg(errp, "Merging of parent and successor bitmap failed");
         return NULL;
     }
@@ -277,7 +296,8 @@ void bdrv_dirty_bitmap_truncate(BlockDriverState *bs)
     BdrvDirtyBitmap *bitmap;
     uint64_t size = bdrv_nb_sectors(bs);
 
-    QLIST_FOREACH(bitmap, &bs->dirty_bitmaps, list) {
+    QLIST_FOREACH(bitmap, &bs->dirty_bitmaps, list)
+    {
         assert(!bdrv_dirty_bitmap_frozen(bitmap));
         assert(!bitmap->active_iterators);
         hbitmap_truncate(bitmap->bitmap, size);
@@ -290,8 +310,10 @@ static void bdrv_do_release_matching_dirty_bitmap(BlockDriverState *bs,
                                                   bool only_named)
 {
     BdrvDirtyBitmap *bm, *next;
-    QLIST_FOREACH_SAFE(bm, &bs->dirty_bitmaps, list, next) {
-        if ((!bitmap || bm == bitmap) && (!only_named || bm->name)) {
+    QLIST_FOREACH_SAFE(bm, &bs->dirty_bitmaps, list, next)
+    {
+        if ((!bitmap || bm == bitmap) && (!only_named || bm->name))
+        {
             assert(!bm->active_iterators);
             assert(!bdrv_dirty_bitmap_frozen(bm));
             assert(!bm->meta);
@@ -300,12 +322,14 @@ static void bdrv_do_release_matching_dirty_bitmap(BlockDriverState *bs,
             g_free(bm->name);
             g_free(bm);
 
-            if (bitmap) {
+            if (bitmap)
+            {
                 return;
             }
         }
     }
-    if (bitmap) {
+    if (bitmap)
+    {
         abort();
     }
 }
@@ -342,7 +366,8 @@ BlockDirtyInfoList *bdrv_query_dirty_bitmaps(BlockDriverState *bs)
     BlockDirtyInfoList *list = NULL;
     BlockDirtyInfoList **plist = &list;
 
-    QLIST_FOREACH(bm, &bs->dirty_bitmaps, list) {
+    QLIST_FOREACH(bm, &bs->dirty_bitmaps, list)
+    {
         BlockDirtyInfo *info = g_new0(BlockDirtyInfo, 1);
         BlockDirtyInfoList *entry = g_new0(BlockDirtyInfoList, 1);
         info->count = bdrv_get_dirty_count(bm);
@@ -361,9 +386,12 @@ BlockDirtyInfoList *bdrv_query_dirty_bitmaps(BlockDriverState *bs)
 int bdrv_get_dirty(BlockDriverState *bs, BdrvDirtyBitmap *bitmap,
                    int64_t sector)
 {
-    if (bitmap) {
+    if (bitmap)
+    {
         return hbitmap_get(bitmap->bitmap, sector);
-    } else {
+    }
+    else
+    {
         return 0;
     }
 }
@@ -378,10 +406,13 @@ uint32_t bdrv_get_default_bitmap_granularity(BlockDriverState *bs)
     BlockDriverInfo bdi;
     uint32_t granularity;
 
-    if (bdrv_get_info(bs, &bdi) >= 0 && bdi.cluster_size > 0) {
+    if (bdrv_get_info(bs, &bdi) >= 0 && bdi.cluster_size > 0)
+    {
         granularity = MAX(4096, bdi.cluster_size);
         granularity = MIN(65536, granularity);
-    } else {
+    }
+    else
+    {
         granularity = 65536;
     }
 
@@ -419,7 +450,8 @@ BdrvDirtyBitmapIter *bdrv_dirty_meta_iter_new(BdrvDirtyBitmap *bitmap)
 
 void bdrv_dirty_iter_free(BdrvDirtyBitmapIter *iter)
 {
-    if (!iter) {
+    if (!iter)
+    {
         return;
     }
     assert(iter->bitmap->active_iterators > 0);
@@ -449,9 +481,12 @@ void bdrv_reset_dirty_bitmap(BdrvDirtyBitmap *bitmap,
 void bdrv_clear_dirty_bitmap(BdrvDirtyBitmap *bitmap, HBitmap **out)
 {
     assert(bdrv_dirty_bitmap_enabled(bitmap));
-    if (!out) {
+    if (!out)
+    {
         hbitmap_reset_all(bitmap->bitmap);
-    } else {
+    }
+    else
+    {
         HBitmap *backup = bitmap->bitmap;
         bitmap->bitmap = hbitmap_alloc(bitmap->size,
                                        hbitmap_granularity(backup));
@@ -508,8 +543,10 @@ void bdrv_set_dirty(BlockDriverState *bs, int64_t cur_sector,
                     int64_t nr_sectors)
 {
     BdrvDirtyBitmap *bitmap;
-    QLIST_FOREACH(bitmap, &bs->dirty_bitmaps, list) {
-        if (!bdrv_dirty_bitmap_enabled(bitmap)) {
+    QLIST_FOREACH(bitmap, &bs->dirty_bitmaps, list)
+    {
+        if (!bdrv_dirty_bitmap_enabled(bitmap))
+        {
             continue;
         }
         hbitmap_set(bitmap->bitmap, cur_sector, nr_sectors);

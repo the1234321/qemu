@@ -73,7 +73,8 @@ void qed_free_l2_cache(L2TableCache *l2_cache)
 {
     CachedL2Table *entry, *next_entry;
 
-    QTAILQ_FOREACH_SAFE(entry, &l2_cache->entries, node, next_entry) {
+    QTAILQ_FOREACH_SAFE(entry, &l2_cache->entries, node, next_entry)
+    {
         qemu_vfree(entry->table);
         g_free(entry);
     }
@@ -104,13 +105,15 @@ CachedL2Table *qed_alloc_l2_cache_entry(L2TableCache *l2_cache)
  */
 void qed_unref_l2_cache_entry(CachedL2Table *entry)
 {
-    if (!entry) {
+    if (!entry)
+    {
         return;
     }
 
     entry->ref--;
     trace_qed_unref_l2_cache_entry(entry, entry->ref);
-    if (entry->ref == 0) {
+    if (entry->ref == 0)
+    {
         qemu_vfree(entry->table);
         g_free(entry);
     }
@@ -127,8 +130,10 @@ CachedL2Table *qed_find_l2_cache_entry(L2TableCache *l2_cache, uint64_t offset)
 {
     CachedL2Table *entry;
 
-    QTAILQ_FOREACH(entry, &l2_cache->entries, node) {
-        if (entry->offset == offset) {
+    QTAILQ_FOREACH(entry, &l2_cache->entries, node)
+    {
+        if (entry->offset == offset)
+        {
             trace_qed_find_l2_cache_entry(l2_cache, entry, offset, entry->ref);
             entry->ref++;
             return entry;
@@ -156,7 +161,8 @@ void qed_commit_l2_cache_entry(L2TableCache *l2_cache, CachedL2Table *l2_table)
     CachedL2Table *entry;
 
     entry = qed_find_l2_cache_entry(l2_cache, l2_table->offset);
-    if (entry) {
+    if (entry)
+    {
         qed_unref_l2_cache_entry(entry);
         qed_unref_l2_cache_entry(l2_table);
         return;
@@ -165,10 +171,13 @@ void qed_commit_l2_cache_entry(L2TableCache *l2_cache, CachedL2Table *l2_table)
     /* Evict an unused cache entry so we have space.  If all entries are in use
      * we can grow the cache temporarily and we try to shrink back down later.
      */
-    if (l2_cache->n_entries >= MAX_L2_CACHE_SIZE) {
+    if (l2_cache->n_entries >= MAX_L2_CACHE_SIZE)
+    {
         CachedL2Table *next;
-        QTAILQ_FOREACH_SAFE(entry, &l2_cache->entries, node, next) {
-            if (entry->ref > 1) {
+        QTAILQ_FOREACH_SAFE(entry, &l2_cache->entries, node, next)
+        {
+            if (entry->ref > 1)
+            {
                 continue;
             }
 
@@ -177,7 +186,8 @@ void qed_commit_l2_cache_entry(L2TableCache *l2_cache, CachedL2Table *l2_table)
             qed_unref_l2_cache_entry(entry);
 
             /* Stop evicting when we've shrunk back to max size */
-            if (l2_cache->n_entries < MAX_L2_CACHE_SIZE) {
+            if (l2_cache->n_entries < MAX_L2_CACHE_SIZE)
+            {
                 break;
             }
         }

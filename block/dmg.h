@@ -31,7 +31,8 @@
 #include "block/block_int.h"
 #include <zlib.h>
 
-typedef struct BDRVDMGState {
+typedef struct BDRVDMGState
+{
     CoMutex lock;
     /* each chunk contains a certain number of sectors,
      * offsets[i] is the offset in the .dmg file,

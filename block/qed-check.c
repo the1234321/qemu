@@ -14,22 +14,25 @@
 #include "qemu/osdep.h"
 #include "qed.h"
 
-typedef struct {
+typedef struct
+{
     BDRVQEDState *s;
     BdrvCheckResult *result;
-    bool fix;                           /* whether to fix invalid offsets */
+    bool fix; /* whether to fix invalid offsets */
 
     uint64_t nclusters;
-    uint32_t *used_clusters;            /* referenced cluster bitmap */
+    uint32_t *used_clusters; /* referenced cluster bitmap */
 
     QEDRequest request;
 } QEDCheck;
 
-static bool qed_test_bit(uint32_t *bitmap, uint64_t n) {
+static bool qed_test_bit(uint32_t *bitmap, uint64_t n)
+{
     return !!(bitmap[n / 32] & (1 << (n % 32)));
 }
 
-static void qed_set_bit(uint32_t *bitmap, uint64_t n) {
+static void qed_set_bit(uint32_t *bitmap, uint64_t n)
+{
     bitmap[n / 32] |= 1 << (n % 32);
 }
 
@@ -46,9 +49,11 @@ static bool qed_set_used_clusters(QEDCheck *check, uint64_t offset,
     uint64_t cluster = qed_bytes_to_clusters(check->s, offset);
     unsigned int corruptions = 0;
 
-    while (n-- != 0) {
+    while (n-- != 0)
+    {
         /* Clusters should only be referenced once */
-        if (qed_test_bit(check->used_clusters, cluster)) {
+        if (qed_test_bit(check->used_clusters, cluster))
+        {
             corruptions++;
         }
 
@@ -71,25 +76,32 @@ static unsigned int qed_check_l2_table(QEDCheck *check, QEDTable *table)
     unsigned int i, num_invalid = 0;
     uint64_t last_offset = 0;
 
-    for (i = 0; i < s->table_nelems; i++) {
+    for (i = 0; i < s->table_nelems; i++)
+    {
         uint64_t offset = table->offsets[i];
 
         if (qed_offset_is_unalloc_cluster(offset) ||
-            qed_offset_is_zero_cluster(offset)) {
+            qed_offset_is_zero_cluster(offset))
+        {
             continue;
         }
         check->result->bfi.allocated_clusters++;
-        if (last_offset && (last_offset + s->header.cluster_size != offset)) {
+        if (last_offset && (last_offset + s->header.cluster_size != offset))
+        {
             check->result->bfi.fragmented_clusters++;
         }
         last_offset = offset;
 
         /* Detect invalid cluster offset */
-        if (!qed_check_cluster_offset(s, offset)) {
-            if (check->fix) {
+        if (!qed_check_cluster_offset(s, offset))
+        {
+            if (check->fix)
+            {
                 table->offsets[i] = 0;
                 check->result->corruptions_fixed++;
-            } else {
+            }
+            else
+            {
                 check->result->corruptions++;
             }
 
@@ -116,21 +128,27 @@ static int qed_check_l1_table(QEDCheck *check, QEDTable *table)
     qed_set_used_clusters(check, s->header.l1_table_offset,
                           s->header.table_size);
 
-    for (i = 0; i < s->table_nelems; i++) {
+    for (i = 0; i < s->table_nelems; i++)
+    {
         unsigned int num_invalid_l2;
         uint64_t offset = table->offsets[i];
 
-        if (qed_offset_is_unalloc_cluster(offset)) {
+        if (qed_offset_is_unalloc_cluster(offset))
+        {
             continue;
         }
 
         /* Detect invalid L2 offset */
-        if (!qed_check_table_offset(s, offset)) {
+        if (!qed_check_table_offset(s, offset))
+        {
             /* Clear invalid offset */
-            if (check->fix) {
+            if (check->fix)
+            {
                 table->offsets[i] = 0;
                 check->result->corruptions_fixed++;
-            } else {
+            }
+            else
+            {
                 check->result->corruptions++;
             }
 
@@ -138,12 +156,14 @@ static int qed_check_l1_table(QEDCheck *check, QEDTable *table)
             continue;
         }
 
-        if (!qed_set_used_clusters(check, offset, s->header.table_size)) {
+        if (!qed_set_used_clusters(check, offset, s->header.table_size))
+        {
             continue; /* skip an invalid table */
         }
 
         ret = qed_read_l2_table_sync(s, &check->request, offset);
-        if (ret) {
+        if (ret)
+        {
             check->result->check_errors++;
             last_error = ret;
             continue;
@@ -153,10 +173,12 @@ static int qed_check_l1_table(QEDCheck *check, QEDTable *table)
                                             check->request.l2_table->table);
 
         /* Write out fixed L2 table */
-        if (num_invalid_l2 > 0 && check->fix) {
+        if (num_invalid_l2 > 0 && check->fix)
+        {
             ret = qed_write_l2_table_sync(s, &check->request, 0,
                                           s->table_nelems, false);
-            if (ret) {
+            if (ret)
+            {
                 check->result->check_errors++;
                 last_error = ret;
                 continue;
@@ -169,9 +191,11 @@ static int qed_check_l1_table(QEDCheck *check, QEDTable *table)
     check->request.l2_table = NULL;
 
     /* Write out fixed L1 table */
-    if (num_invalid_l1 > 0 && check->fix) {
+    if (num_invalid_l1 > 0 && check->fix)
+    {
         ret = qed_write_l1_table_sync(s, 0, s->table_nelems);
-        if (ret) {
+        if (ret)
+        {
             check->result->check_errors++;
             last_error = ret;
         }
@@ -188,8 +212,10 @@ static void qed_check_for_leaks(QEDCheck *check)
     BDRVQEDState *s = check->s;
     uint64_t i;
 
-    for (i = s->header.header_size; i < check->nclusters; i++) {
-        if (!qed_test_bit(check->used_clusters, i)) {
+    for (i = s->header.header_size; i < check->nclusters; i++)
+    {
+        if (!qed_test_bit(check->used_clusters, i))
+        {
             check->result->leaks++;
         }
     }
@@ -201,12 +227,14 @@ static void qed_check_for_leaks(QEDCheck *check)
 static void qed_check_mark_clean(BDRVQEDState *s, BdrvCheckResult *result)
 {
     /* Skip if there were unfixable corruptions or I/O errors */
-    if (result->corruptions > 0 || result->check_errors > 0) {
+    if (result->corruptions > 0 || result->check_errors > 0)
+    {
         return;
     }
 
     /* Skip if image is already marked clean */
-    if (!(s->header.features & QED_F_NEED_CHECK)) {
+    if (!(s->header.features & QED_F_NEED_CHECK))
+    {
         return;
     }
 
@@ -223,24 +251,27 @@ int qed_check(BDRVQEDState *s, BdrvCheckResult *result, bool fix)
         .s = s,
         .result = result,
         .nclusters = qed_bytes_to_clusters(s, s->file_size),
-        .request = { .l2_table = NULL },
+        .request = {.l2_table = NULL},
         .fix = fix,
     };
     int ret;
 
     check.used_clusters = g_try_new0(uint32_t, (check.nclusters + 31) / 32);
-    if (check.nclusters && check.used_clusters == NULL) {
+    if (check.nclusters && check.used_clusters == NULL)
+    {
         return -ENOMEM;
     }
 
     check.result->bfi.total_clusters =
         DIV_ROUND_UP(s->header.image_size, s->header.cluster_size);
     ret = qed_check_l1_table(&check, s->l1_table);
-    if (ret == 0) {
+    if (ret == 0)
+    {
         /* Only check for leaks if entire image was scanned successfully */
         qed_check_for_leaks(&check);
 
-        if (fix) {
+        if (fix)
+        {
             qed_check_mark_clean(s, result);
         }
     }

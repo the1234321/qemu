@@ -32,7 +32,8 @@
 /* Maximum compressed block size */
 #define MAX_BLOCK_SIZE (64 * 1024 * 1024)
 
-typedef struct BDRVCloopState {
+typedef struct BDRVCloopState
+{
     CoMutex lock;
     uint32_t block_size;
     uint32_t n_blocks;
@@ -47,13 +48,15 @@ typedef struct BDRVCloopState {
 static int cloop_probe(const uint8_t *buf, int buf_size, const char *filename)
 {
     const char *magic_version_2_0 = "#!/bin/sh\n"
-        "#V2.0 Format\n"
-        "modprobe cloop file=$0 && mount -r -t iso9660 /dev/cloop $1\n";
+                                    "#V2.0 Format\n"
+                                    "modprobe cloop file=$0 && mount -r -t iso9660 /dev/cloop $1\n";
     int length = strlen(magic_version_2_0);
-    if (length > buf_size) {
+    if (length > buf_size)
+    {
         length = buf_size;
     }
-    if (!memcmp(magic_version_2_0, buf, length)) {
+    if (!memcmp(magic_version_2_0, buf, length))
+    {
         return 2;
     }
     return 0;
@@ -70,16 +73,19 @@ static int cloop_open(BlockDriverState *bs, QDict *options, int flags,
 
     /* read header */
     ret = bdrv_pread(bs->file, 128, &s->block_size, 4);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         return ret;
     }
     s->block_size = be32_to_cpu(s->block_size);
-    if (s->block_size % 512) {
+    if (s->block_size % 512)
+    {
         error_setg(errp, "block_size %" PRIu32 " must be a multiple of 512",
                    s->block_size);
         return -EINVAL;
     }
-    if (s->block_size == 0) {
+    if (s->block_size == 0)
+    {
         error_setg(errp, "block_size cannot be zero");
         return -EINVAL;
     }
@@ -88,7 +94,8 @@ static int cloop_open(BlockDriverState *bs, QDict *options, int flags,
      * we can accept more.  Prevent ridiculous values like 4 GB - 1 since we
      * need a buffer this big.
      */
-    if (s->block_size > MAX_BLOCK_SIZE) {
+    if (s->block_size > MAX_BLOCK_SIZE)
+    {
         error_setg(errp, "block_size %" PRIu32 " must be %u MB or less",
                    s->block_size,
                    MAX_BLOCK_SIZE / (1024 * 1024));
@@ -96,13 +103,15 @@ static int cloop_open(BlockDriverState *bs, QDict *options, int flags,
     }
 
     ret = bdrv_pread(bs->file, 128 + 4, &s->n_blocks, 4);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         return ret;
     }
     s->n_blocks = be32_to_cpu(s->n_blocks);
 
     /* read offsets */
-    if (s->n_blocks > (UINT32_MAX - 1) / sizeof(uint64_t)) {
+    if (s->n_blocks > (UINT32_MAX - 1) / sizeof(uint64_t))
+    {
         /* Prevent integer overflow */
         error_setg(errp, "n_blocks %" PRIu32 " must be %zu or less",
                    s->n_blocks,
@@ -110,38 +119,45 @@ static int cloop_open(BlockDriverState *bs, QDict *options, int flags,
         return -EINVAL;
     }
     offsets_size = (s->n_blocks + 1) * sizeof(uint64_t);
-    if (offsets_size > 512 * 1024 * 1024) {
+    if (offsets_size > 512 * 1024 * 1024)
+    {
         /* Prevent ridiculous offsets_size which causes memory allocation to
          * fail or overflows bdrv_pread() size.  In practice the 512 MB
          * offsets[] limit supports 16 TB images at 256 KB block size.
          */
         error_setg(errp, "image requires too many offsets, "
-                   "try increasing block size");
+                         "try increasing block size");
         return -EINVAL;
     }
 
     s->offsets = g_try_malloc(offsets_size);
-    if (s->offsets == NULL) {
+    if (s->offsets == NULL)
+    {
         error_setg(errp, "Could not allocate offsets table");
         return -ENOMEM;
     }
 
     ret = bdrv_pread(bs->file, 128 + 4 + 4, s->offsets, offsets_size);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto fail;
     }
 
-    for (i = 0; i < s->n_blocks + 1; i++) {
+    for (i = 0; i < s->n_blocks + 1; i++)
+    {
         uint64_t size;
 
         s->offsets[i] = be64_to_cpu(s->offsets[i]);
-        if (i == 0) {
+        if (i == 0)
+        {
             continue;
         }
 
-        if (s->offsets[i] < s->offsets[i - 1]) {
+        if (s->offsets[i] < s->offsets[i - 1])
+        {
             error_setg(errp, "offsets not monotonically increasing at "
-                       "index %" PRIu32 ", image file is corrupt", i);
+                             "index %" PRIu32 ", image file is corrupt",
+                       i);
             ret = -EINVAL;
             goto fail;
         }
@@ -153,40 +169,44 @@ static int cloop_open(BlockDriverState *bs, QDict *options, int flags,
          * actually bigger.  Clamp down on unrealistic values to prevent
          * ridiculous s->compressed_block allocation.
          */
-        if (size > 2 * MAX_BLOCK_SIZE) {
-            error_setg(errp, "invalid compressed block size at index %" PRIu32
-                       ", image file is corrupt", i);
+        if (size > 2 * MAX_BLOCK_SIZE)
+        {
+            error_setg(errp, "invalid compressed block size at index %" PRIu32 ", image file is corrupt", i);
             ret = -EINVAL;
             goto fail;
         }
 
-        if (size > max_compressed_block_size) {
+        if (size > max_compressed_block_size)
+        {
             max_compressed_block_size = size;
         }
     }
 
     /* initialize zlib engine */
     s->compressed_block = g_try_malloc(max_compressed_block_size + 1);
-    if (s->compressed_block == NULL) {
+    if (s->compressed_block == NULL)
+    {
         error_setg(errp, "Could not allocate compressed_block");
         ret = -ENOMEM;
         goto fail;
     }
 
     s->uncompressed_block = g_try_malloc(s->block_size);
-    if (s->uncompressed_block == NULL) {
+    if (s->uncompressed_block == NULL)
+    {
         error_setg(errp, "Could not allocate uncompressed_block");
         ret = -ENOMEM;
         goto fail;
     }
 
-    if (inflateInit(&s->zstream) != Z_OK) {
+    if (inflateInit(&s->zstream) != Z_OK)
+    {
         ret = -EINVAL;
         goto fail;
     }
     s->current_block = s->n_blocks;
 
-    s->sectors_per_block = s->block_size/512;
+    s->sectors_per_block = s->block_size / 512;
     bs->total_sectors = s->n_blocks * s->sectors_per_block;
     qemu_co_mutex_init(&s->lock);
     return 0;
@@ -207,13 +227,15 @@ static inline int cloop_read_block(BlockDriverState *bs, int block_num)
 {
     BDRVCloopState *s = bs->opaque;
 
-    if (s->current_block != block_num) {
+    if (s->current_block != block_num)
+    {
         int ret;
         uint32_t bytes = s->offsets[block_num + 1] - s->offsets[block_num];
 
         ret = bdrv_pread(bs->file, s->offsets[block_num],
                          s->compressed_block, bytes);
-        if (ret != bytes) {
+        if (ret != bytes)
+        {
             return -1;
         }
 
@@ -222,11 +244,13 @@ static inline int cloop_read_block(BlockDriverState *bs, int block_num)
         s->zstream.next_out = s->uncompressed_block;
         s->zstream.avail_out = s->block_size;
         ret = inflateReset(&s->zstream);
-        if (ret != Z_OK) {
+        if (ret != Z_OK)
+        {
             return -1;
         }
         ret = inflate(&s->zstream, Z_FINISH);
-        if (ret != Z_STREAM_END || s->zstream.total_out != s->block_size) {
+        if (ret != Z_STREAM_END || s->zstream.total_out != s->block_size)
+        {
             return -1;
         }
 
@@ -249,12 +273,14 @@ cloop_co_preadv(BlockDriverState *bs, uint64_t offset, uint64_t bytes,
 
     qemu_co_mutex_lock(&s->lock);
 
-    for (i = 0; i < nb_sectors; i++) {
+    for (i = 0; i < nb_sectors; i++)
+    {
         void *data;
         uint32_t sector_offset_in_block =
-            ((sector_num + i) % s->sectors_per_block),
-            block_num = (sector_num + i) / s->sectors_per_block;
-        if (cloop_read_block(bs, block_num) != 0) {
+                     ((sector_num + i) % s->sectors_per_block),
+                 block_num = (sector_num + i) / s->sectors_per_block;
+        if (cloop_read_block(bs, block_num) != 0)
+        {
             ret = -EIO;
             goto fail;
         }
@@ -280,13 +306,13 @@ static void cloop_close(BlockDriverState *bs)
 }
 
 static BlockDriver bdrv_cloop = {
-    .format_name    = "cloop",
-    .instance_size  = sizeof(BDRVCloopState),
-    .bdrv_probe     = cloop_probe,
-    .bdrv_open      = cloop_open,
+    .format_name = "cloop",
+    .instance_size = sizeof(BDRVCloopState),
+    .bdrv_probe = cloop_probe,
+    .bdrv_open = cloop_open,
     .bdrv_refresh_limits = cloop_refresh_limits,
     .bdrv_co_preadv = cloop_co_preadv,
-    .bdrv_close     = cloop_close,
+    .bdrv_close = cloop_close,
 };
 
 static void bdrv_cloop_init(void)

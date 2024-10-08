@@ -41,25 +41,27 @@ BlockDeviceInfo *bdrv_block_device_info(BlockBackend *blk,
     BlockDriverState *bs0;
     BlockDeviceInfo *info = g_malloc0(sizeof(*info));
 
-    info->file                   = g_strdup(bs->filename);
-    info->ro                     = bs->read_only;
-    info->drv                    = g_strdup(bs->drv->format_name);
-    info->encrypted              = bs->encrypted;
+    info->file = g_strdup(bs->filename);
+    info->ro = bs->read_only;
+    info->drv = g_strdup(bs->drv->format_name);
+    info->encrypted = bs->encrypted;
     info->encryption_key_missing = bdrv_key_required(bs);
 
     info->cache = g_new(BlockdevCacheInfo, 1);
-    *info->cache = (BlockdevCacheInfo) {
-        .writeback      = blk ? blk_enable_write_cache(blk) : true,
-        .direct         = !!(bs->open_flags & BDRV_O_NOCACHE),
-        .no_flush       = !!(bs->open_flags & BDRV_O_NO_FLUSH),
+    *info->cache = (BlockdevCacheInfo){
+        .writeback = blk ? blk_enable_write_cache(blk) : true,
+        .direct = !!(bs->open_flags & BDRV_O_NOCACHE),
+        .no_flush = !!(bs->open_flags & BDRV_O_NO_FLUSH),
     };
 
-    if (bs->node_name[0]) {
+    if (bs->node_name[0])
+    {
         info->has_node_name = true;
         info->node_name = g_strdup(bs->node_name);
     }
 
-    if (bs->backing_file[0]) {
+    if (bs->backing_file[0])
+    {
         info->has_backing_file = true;
         info->backing_file = g_strdup(bs->backing_file);
     }
@@ -67,51 +69,52 @@ BlockDeviceInfo *bdrv_block_device_info(BlockBackend *blk,
     info->backing_file_depth = bdrv_get_backing_file_depth(bs);
     info->detect_zeroes = bs->detect_zeroes;
 
-    if (blk && blk_get_public(blk)->throttle_state) {
+    if (blk && blk_get_public(blk)->throttle_state)
+    {
         ThrottleConfig cfg;
 
         throttle_group_get_config(blk, &cfg);
 
-        info->bps     = cfg.buckets[THROTTLE_BPS_TOTAL].avg;
-        info->bps_rd  = cfg.buckets[THROTTLE_BPS_READ].avg;
-        info->bps_wr  = cfg.buckets[THROTTLE_BPS_WRITE].avg;
+        info->bps = cfg.buckets[THROTTLE_BPS_TOTAL].avg;
+        info->bps_rd = cfg.buckets[THROTTLE_BPS_READ].avg;
+        info->bps_wr = cfg.buckets[THROTTLE_BPS_WRITE].avg;
 
-        info->iops    = cfg.buckets[THROTTLE_OPS_TOTAL].avg;
+        info->iops = cfg.buckets[THROTTLE_OPS_TOTAL].avg;
         info->iops_rd = cfg.buckets[THROTTLE_OPS_READ].avg;
         info->iops_wr = cfg.buckets[THROTTLE_OPS_WRITE].avg;
 
-        info->has_bps_max     = cfg.buckets[THROTTLE_BPS_TOTAL].max;
-        info->bps_max         = cfg.buckets[THROTTLE_BPS_TOTAL].max;
-        info->has_bps_rd_max  = cfg.buckets[THROTTLE_BPS_READ].max;
-        info->bps_rd_max      = cfg.buckets[THROTTLE_BPS_READ].max;
-        info->has_bps_wr_max  = cfg.buckets[THROTTLE_BPS_WRITE].max;
-        info->bps_wr_max      = cfg.buckets[THROTTLE_BPS_WRITE].max;
+        info->has_bps_max = cfg.buckets[THROTTLE_BPS_TOTAL].max;
+        info->bps_max = cfg.buckets[THROTTLE_BPS_TOTAL].max;
+        info->has_bps_rd_max = cfg.buckets[THROTTLE_BPS_READ].max;
+        info->bps_rd_max = cfg.buckets[THROTTLE_BPS_READ].max;
+        info->has_bps_wr_max = cfg.buckets[THROTTLE_BPS_WRITE].max;
+        info->bps_wr_max = cfg.buckets[THROTTLE_BPS_WRITE].max;
 
-        info->has_iops_max    = cfg.buckets[THROTTLE_OPS_TOTAL].max;
-        info->iops_max        = cfg.buckets[THROTTLE_OPS_TOTAL].max;
+        info->has_iops_max = cfg.buckets[THROTTLE_OPS_TOTAL].max;
+        info->iops_max = cfg.buckets[THROTTLE_OPS_TOTAL].max;
         info->has_iops_rd_max = cfg.buckets[THROTTLE_OPS_READ].max;
-        info->iops_rd_max     = cfg.buckets[THROTTLE_OPS_READ].max;
+        info->iops_rd_max = cfg.buckets[THROTTLE_OPS_READ].max;
         info->has_iops_wr_max = cfg.buckets[THROTTLE_OPS_WRITE].max;
-        info->iops_wr_max     = cfg.buckets[THROTTLE_OPS_WRITE].max;
+        info->iops_wr_max = cfg.buckets[THROTTLE_OPS_WRITE].max;
 
-        info->has_bps_max_length     = info->has_bps_max;
-        info->bps_max_length         =
+        info->has_bps_max_length = info->has_bps_max;
+        info->bps_max_length =
             cfg.buckets[THROTTLE_BPS_TOTAL].burst_length;
-        info->has_bps_rd_max_length  = info->has_bps_rd_max;
-        info->bps_rd_max_length      =
+        info->has_bps_rd_max_length = info->has_bps_rd_max;
+        info->bps_rd_max_length =
             cfg.buckets[THROTTLE_BPS_READ].burst_length;
-        info->has_bps_wr_max_length  = info->has_bps_wr_max;
-        info->bps_wr_max_length      =
+        info->has_bps_wr_max_length = info->has_bps_wr_max;
+        info->bps_wr_max_length =
             cfg.buckets[THROTTLE_BPS_WRITE].burst_length;
 
-        info->has_iops_max_length    = info->has_iops_max;
-        info->iops_max_length        =
+        info->has_iops_max_length = info->has_iops_max;
+        info->iops_max_length =
             cfg.buckets[THROTTLE_OPS_TOTAL].burst_length;
         info->has_iops_rd_max_length = info->has_iops_rd_max;
-        info->iops_rd_max_length     =
+        info->iops_rd_max_length =
             cfg.buckets[THROTTLE_OPS_READ].burst_length;
         info->has_iops_wr_max_length = info->has_iops_wr_max;
-        info->iops_wr_max_length     =
+        info->iops_wr_max_length =
             cfg.buckets[THROTTLE_OPS_WRITE].burst_length;
 
         info->has_iops_size = cfg.op_size;
@@ -125,19 +128,24 @@ BlockDeviceInfo *bdrv_block_device_info(BlockBackend *blk,
 
     bs0 = bs;
     p_image_info = &info->image;
-    while (1) {
+    while (1)
+    {
         Error *local_err = NULL;
         bdrv_query_image_info(bs0, p_image_info, &local_err);
-        if (local_err) {
+        if (local_err)
+        {
             error_propagate(errp, local_err);
             qapi_free_BlockDeviceInfo(info);
             return NULL;
         }
-        if (bs0->drv && bs0->backing) {
+        if (bs0->drv && bs0->backing)
+        {
             bs0 = bs0->backing->bs;
             (*p_image_info)->has_backing_image = true;
             p_image_info = &((*p_image_info)->backing_image);
-        } else {
+        }
+        else
+        {
             break;
         }
     }
@@ -160,9 +168,11 @@ int bdrv_query_snapshot_info_list(BlockDriverState *bs,
     SnapshotInfo *info;
 
     sn_count = bdrv_snapshot_list(bs, &sn_tab);
-    if (sn_count < 0) {
+    if (sn_count < 0)
+    {
         const char *dev = bdrv_get_device_name(bs);
-        switch (sn_count) {
+        switch (sn_count)
+        {
         case -ENOMEDIUM:
             error_setg(errp, "Device '%s' is not inserted", dev);
             break;
@@ -179,27 +189,30 @@ int bdrv_query_snapshot_info_list(BlockDriverState *bs,
         return sn_count;
     }
 
-    for (i = 0; i < sn_count; i++) {
+    for (i = 0; i < sn_count; i++)
+    {
         info = g_new0(SnapshotInfo, 1);
-        info->id            = g_strdup(sn_tab[i].id_str);
-        info->name          = g_strdup(sn_tab[i].name);
+        info->id = g_strdup(sn_tab[i].id_str);
+        info->name = g_strdup(sn_tab[i].name);
         info->vm_state_size = sn_tab[i].vm_state_size;
-        info->date_sec      = sn_tab[i].date_sec;
-        info->date_nsec     = sn_tab[i].date_nsec;
-        info->vm_clock_sec  = sn_tab[i].vm_clock_nsec / 1000000000;
+        info->date_sec = sn_tab[i].date_sec;
+        info->date_nsec = sn_tab[i].date_nsec;
+        info->vm_clock_sec = sn_tab[i].vm_clock_nsec / 1000000000;
         info->vm_clock_nsec = sn_tab[i].vm_clock_nsec % 1000000000;
 
         info_list = g_new0(SnapshotInfoList, 1);
         info_list->value = info;
 
         /* XXX: waiting for the qapi to support qemu-queue.h types */
-        if (!cur_item) {
+        if (!cur_item)
+        {
             head = cur_item = info_list;
-        } else {
+        }
+        else
+        {
             cur_item->next = info_list;
             cur_item = info_list;
         }
-
     }
 
     g_free(sn_tab);
@@ -236,40 +249,46 @@ void bdrv_query_image_info(BlockDriverState *bs,
     aio_context_acquire(bdrv_get_aio_context(bs));
 
     size = bdrv_getlength(bs);
-    if (size < 0) {
+    if (size < 0)
+    {
         error_setg_errno(errp, -size, "Can't get size of device '%s'",
                          bdrv_get_device_name(bs));
         goto out;
     }
 
     info = g_new0(ImageInfo, 1);
-    info->filename        = g_strdup(bs->filename);
-    info->format          = g_strdup(bdrv_get_format_name(bs));
-    info->virtual_size    = size;
-    info->actual_size     = bdrv_get_allocated_file_size(bs);
+    info->filename = g_strdup(bs->filename);
+    info->format = g_strdup(bdrv_get_format_name(bs));
+    info->virtual_size = size;
+    info->actual_size = bdrv_get_allocated_file_size(bs);
     info->has_actual_size = info->actual_size >= 0;
-    if (bdrv_is_encrypted(bs)) {
+    if (bdrv_is_encrypted(bs))
+    {
         info->encrypted = true;
         info->has_encrypted = true;
     }
-    if (bdrv_get_info(bs, &bdi) >= 0) {
-        if (bdi.cluster_size != 0) {
+    if (bdrv_get_info(bs, &bdi) >= 0)
+    {
+        if (bdi.cluster_size != 0)
+        {
             info->cluster_size = bdi.cluster_size;
             info->has_cluster_size = true;
         }
         info->dirty_flag = bdi.is_dirty;
         info->has_dirty_flag = true;
     }
-    info->format_specific     = bdrv_get_specific_info(bs);
+    info->format_specific = bdrv_get_specific_info(bs);
     info->has_format_specific = info->format_specific != NULL;
 
     backing_filename = bs->backing_file;
-    if (backing_filename[0] != '\0') {
+    if (backing_filename[0] != '\0')
+    {
         char *backing_filename2 = g_malloc0(PATH_MAX);
         info->backing_filename = g_strdup(backing_filename);
         info->has_backing_filename = true;
         bdrv_get_full_backing_filename(bs, backing_filename2, PATH_MAX, &err);
-        if (err) {
+        if (err)
+        {
             /* Can't reconstruct the full backing filename, so we must omit
              * this field and apply a Best Effort to this query. */
             g_free(backing_filename2);
@@ -280,12 +299,14 @@ void bdrv_query_image_info(BlockDriverState *bs,
 
         /* Always report the full_backing_filename if present, even if it's the
          * same as backing_filename. That they are same is useful info. */
-        if (backing_filename2) {
+        if (backing_filename2)
+        {
             info->full_backing_filename = g_strdup(backing_filename2);
             info->has_full_backing_filename = true;
         }
 
-        if (bs->backing_format[0]) {
+        if (bs->backing_format[0])
+        {
             info->backing_filename_format = g_strdup(bs->backing_format);
             info->has_backing_filename_format = true;
         }
@@ -293,9 +314,11 @@ void bdrv_query_image_info(BlockDriverState *bs,
     }
 
     ret = bdrv_query_snapshot_info_list(bs, &info->snapshots, &err);
-    switch (ret) {
+    switch (ret)
+    {
     case 0:
-        if (info->snapshots) {
+        if (info->snapshots)
+        {
             info->has_snapshots = true;
         }
         break;
@@ -327,25 +350,30 @@ static void bdrv_query_info(BlockBackend *blk, BlockInfo **p_info,
     info->locked = blk_dev_is_medium_locked(blk);
     info->removable = blk_dev_has_removable_media(blk);
 
-    if (blk_dev_has_tray(blk)) {
+    if (blk_dev_has_tray(blk))
+    {
         info->has_tray_open = true;
         info->tray_open = blk_dev_is_tray_open(blk);
     }
 
-    if (blk_iostatus_is_enabled(blk)) {
+    if (blk_iostatus_is_enabled(blk))
+    {
         info->has_io_status = true;
         info->io_status = blk_iostatus(blk);
     }
 
-    if (bs && !QLIST_EMPTY(&bs->dirty_bitmaps)) {
+    if (bs && !QLIST_EMPTY(&bs->dirty_bitmaps))
+    {
         info->has_dirty_bitmaps = true;
         info->dirty_bitmaps = bdrv_query_dirty_bitmaps(bs);
     }
 
-    if (bs && bs->drv) {
+    if (bs && bs->drv)
+    {
         info->has_inserted = true;
         info->inserted = bdrv_block_device_info(blk, bs, errp);
-        if (info->inserted == NULL) {
+        if (info->inserted == NULL)
+        {
             goto err;
         }
     }
@@ -353,7 +381,7 @@ static void bdrv_query_info(BlockBackend *blk, BlockInfo **p_info,
     *p_info = info;
     return;
 
- err:
+err:
     qapi_free_BlockInfo(info);
 }
 
@@ -388,14 +416,16 @@ static void bdrv_query_blk_stats(BlockDeviceStats *ds, BlockBackend *blk)
     ds->flush_total_time_ns = stats->total_time_ns[BLOCK_ACCT_FLUSH];
 
     ds->has_idle_time_ns = stats->last_access_time_ns > 0;
-    if (ds->has_idle_time_ns) {
+    if (ds->has_idle_time_ns)
+    {
         ds->idle_time_ns = block_acct_idle_time_ns(stats);
     }
 
     ds->account_invalid = stats->account_invalid;
     ds->account_failed = stats->account_failed;
 
-    while ((ts = block_acct_interval_next(stats, ts))) {
+    while ((ts = block_acct_interval_next(stats, ts)))
+    {
         BlockDeviceTimedStatsList *timed_stats =
             g_malloc0(sizeof(*timed_stats));
         BlockDeviceTimedStats *dev_stats = g_malloc0(sizeof(*dev_stats));
@@ -431,23 +461,25 @@ static void bdrv_query_blk_stats(BlockDeviceStats *ds, BlockBackend *blk)
 static void bdrv_query_bds_stats(BlockStats *s, const BlockDriverState *bs,
                                  bool query_backing)
 {
-    if (bdrv_get_node_name(bs)[0]) {
+    if (bdrv_get_node_name(bs)[0])
+    {
         s->has_node_name = true;
         s->node_name = g_strdup(bdrv_get_node_name(bs));
     }
 
     s->stats->wr_highest_offset = bs->wr_highest_offset;
 
-    if (bs->file) {
+    if (bs->file)
+    {
         s->has_parent = true;
         s->parent = bdrv_query_stats(NULL, bs->file->bs, query_backing);
     }
 
-    if (query_backing && bs->backing) {
+    if (query_backing && bs->backing)
+    {
         s->has_backing = true;
         s->backing = bdrv_query_stats(NULL, bs->backing->bs, query_backing);
     }
-
 }
 
 static BlockStats *bdrv_query_stats(BlockBackend *blk,
@@ -459,12 +491,14 @@ static BlockStats *bdrv_query_stats(BlockBackend *blk,
     s = g_malloc0(sizeof(*s));
     s->stats = g_malloc0(sizeof(*s->stats));
 
-    if (blk) {
+    if (blk)
+    {
         s->has_device = true;
         s->device = g_strdup(blk_name(blk));
         bdrv_query_blk_stats(s->stats, blk);
     }
-    if (bs) {
+    if (bs)
+    {
         bdrv_query_bds_stats(s, bs, query_backing);
     }
 
@@ -477,10 +511,12 @@ BlockInfoList *qmp_query_block(Error **errp)
     BlockBackend *blk;
     Error *local_err = NULL;
 
-    for (blk = blk_next(NULL); blk; blk = blk_next(blk)) {
+    for (blk = blk_next(NULL); blk; blk = blk_next(blk))
+    {
         BlockInfoList *info = g_malloc0(sizeof(*info));
         bdrv_query_info(blk, &info->value, &local_err);
-        if (local_err) {
+        if (local_err)
+        {
             error_propagate(errp, local_err);
             g_free(info);
             qapi_free_BlockInfoList(head);
@@ -497,7 +533,8 @@ BlockInfoList *qmp_query_block(Error **errp)
 static bool next_query_bds(BlockBackend **blk, BlockDriverState **bs,
                            bool query_nodes)
 {
-    if (query_nodes) {
+    if (query_nodes)
+    {
         *bs = bdrv_next_node(*bs);
         return !!*bs;
     }
@@ -519,7 +556,8 @@ BlockStatsList *qmp_query_blockstats(bool has_query_nodes,
     /* Just to be safe if query_nodes is not always initialized */
     query_nodes = has_query_nodes && query_nodes;
 
-    while (next_query_bds(&blk, &bs, query_nodes)) {
+    while (next_query_bds(&blk, &bs, query_nodes))
+    {
         BlockStatsList *info = g_malloc0(sizeof(*info));
         AioContext *ctx = blk ? blk_get_aio_context(blk)
                               : bdrv_get_aio_context(bs);
@@ -543,17 +581,24 @@ static char *get_human_readable_size(char *buf, int buf_size, int64_t size)
     int64_t base;
     int i;
 
-    if (size <= 999) {
+    if (size <= 999)
+    {
         snprintf(buf, buf_size, "%" PRId64, size);
-    } else {
+    }
+    else
+    {
         base = 1024;
-        for (i = 0; i < NB_SUFFIXES; i++) {
-            if (size < (10 * base)) {
+        for (i = 0; i < NB_SUFFIXES; i++)
+        {
+            if (size < (10 * base))
+            {
                 snprintf(buf, buf_size, "%0.1f%c",
                          (double)size / base,
                          suffixes[i]);
                 break;
-            } else if (size < (1000 * base) || i == (NB_SUFFIXES - 1)) {
+            }
+            else if (size < (1000 * base) || i == (NB_SUFFIXES - 1))
+            {
                 snprintf(buf, buf_size, "%" PRId64 "%c",
                          ((size + (base >> 1)) / base),
                          suffixes[i]);
@@ -573,11 +618,14 @@ void bdrv_snapshot_dump(fprintf_function func_fprintf, void *f,
     time_t ti;
     int64_t secs;
 
-    if (!sn) {
+    if (!sn)
+    {
         func_fprintf(f,
                      "%-10s%-20s%7s%20s%15s",
                      "ID", "TAG", "VM SIZE", "DATE", "VM CLOCK");
-    } else {
+    }
+    else
+    {
         ti = sn->date_sec;
         localtime_r(&ti, &tm);
         strftime(date_buf, sizeof(date_buf),
@@ -607,39 +655,46 @@ static void dump_qlist(fprintf_function func_fprintf, void *f, int indentation,
 static void dump_qobject(fprintf_function func_fprintf, void *f,
                          int comp_indent, QObject *obj)
 {
-    switch (qobject_type(obj)) {
-        case QTYPE_QINT: {
-            QInt *value = qobject_to_qint(obj);
-            func_fprintf(f, "%" PRId64, qint_get_int(value));
-            break;
-        }
-        case QTYPE_QSTRING: {
-            QString *value = qobject_to_qstring(obj);
-            func_fprintf(f, "%s", qstring_get_str(value));
-            break;
-        }
-        case QTYPE_QDICT: {
-            QDict *value = qobject_to_qdict(obj);
-            dump_qdict(func_fprintf, f, comp_indent, value);
-            break;
-        }
-        case QTYPE_QLIST: {
-            QList *value = qobject_to_qlist(obj);
-            dump_qlist(func_fprintf, f, comp_indent, value);
-            break;
-        }
-        case QTYPE_QFLOAT: {
-            QFloat *value = qobject_to_qfloat(obj);
-            func_fprintf(f, "%g", qfloat_get_double(value));
-            break;
-        }
-        case QTYPE_QBOOL: {
-            QBool *value = qobject_to_qbool(obj);
-            func_fprintf(f, "%s", qbool_get_bool(value) ? "true" : "false");
-            break;
-        }
-        default:
-            abort();
+    switch (qobject_type(obj))
+    {
+    case QTYPE_QINT:
+    {
+        QInt *value = qobject_to_qint(obj);
+        func_fprintf(f, "%" PRId64, qint_get_int(value));
+        break;
+    }
+    case QTYPE_QSTRING:
+    {
+        QString *value = qobject_to_qstring(obj);
+        func_fprintf(f, "%s", qstring_get_str(value));
+        break;
+    }
+    case QTYPE_QDICT:
+    {
+        QDict *value = qobject_to_qdict(obj);
+        dump_qdict(func_fprintf, f, comp_indent, value);
+        break;
+    }
+    case QTYPE_QLIST:
+    {
+        QList *value = qobject_to_qlist(obj);
+        dump_qlist(func_fprintf, f, comp_indent, value);
+        break;
+    }
+    case QTYPE_QFLOAT:
+    {
+        QFloat *value = qobject_to_qfloat(obj);
+        func_fprintf(f, "%g", qfloat_get_double(value));
+        break;
+    }
+    case QTYPE_QBOOL:
+    {
+        QBool *value = qobject_to_qbool(obj);
+        func_fprintf(f, "%s", qbool_get_bool(value) ? "true" : "false");
+        break;
+    }
+    default:
+        abort();
     }
 }
 
@@ -649,13 +704,15 @@ static void dump_qlist(fprintf_function func_fprintf, void *f, int indentation,
     const QListEntry *entry;
     int i = 0;
 
-    for (entry = qlist_first(list); entry; entry = qlist_next(entry), i++) {
+    for (entry = qlist_first(list); entry; entry = qlist_next(entry), i++)
+    {
         QType type = qobject_type(entry->value);
         bool composite = (type == QTYPE_QDICT || type == QTYPE_QLIST);
         func_fprintf(f, "%*s[%i]:%c", indentation * 4, "", i,
                      composite ? '\n' : ' ');
         dump_qobject(func_fprintf, f, indentation + 1, entry->value);
-        if (!composite) {
+        if (!composite)
+        {
             func_fprintf(f, "\n");
         }
     }
@@ -666,21 +723,24 @@ static void dump_qdict(fprintf_function func_fprintf, void *f, int indentation,
 {
     const QDictEntry *entry;
 
-    for (entry = qdict_first(dict); entry; entry = qdict_next(dict, entry)) {
+    for (entry = qdict_first(dict); entry; entry = qdict_next(dict, entry))
+    {
         QType type = qobject_type(entry->value);
         bool composite = (type == QTYPE_QDICT || type == QTYPE_QLIST);
         char *key = g_malloc(strlen(entry->key) + 1);
         int i;
 
         /* replace dashes with spaces in key (variable) names */
-        for (i = 0; entry->key[i]; i++) {
+        for (i = 0; entry->key[i]; i++)
+        {
             key[i] = entry->key[i] == '-' ? ' ' : entry->key[i];
         }
         key[i] = 0;
         func_fprintf(f, "%*s%s:%c", indentation * 4, "", key,
                      composite ? '\n' : ' ');
         dump_qobject(func_fprintf, f, indentation + 1, entry->value);
-        if (!composite) {
+        if (!composite)
+        {
             func_fprintf(f, "\n");
         }
         g_free(key);
@@ -706,9 +766,12 @@ void bdrv_image_info_dump(fprintf_function func_fprintf, void *f,
                           ImageInfo *info)
 {
     char size_buf[128], dsize_buf[128];
-    if (!info->has_actual_size) {
+    if (!info->has_actual_size)
+    {
         snprintf(dsize_buf, sizeof(dsize_buf), "unavailable");
-    } else {
+    }
+    else
+    {
         get_human_readable_size(dsize_buf, sizeof(dsize_buf),
                                 info->actual_size);
     }
@@ -722,35 +785,44 @@ void bdrv_image_info_dump(fprintf_function func_fprintf, void *f,
                  info->virtual_size,
                  dsize_buf);
 
-    if (info->has_encrypted && info->encrypted) {
+    if (info->has_encrypted && info->encrypted)
+    {
         func_fprintf(f, "encrypted: yes\n");
     }
 
-    if (info->has_cluster_size) {
+    if (info->has_cluster_size)
+    {
         func_fprintf(f, "cluster_size: %" PRId64 "\n",
-                       info->cluster_size);
+                     info->cluster_size);
     }
 
-    if (info->has_dirty_flag && info->dirty_flag) {
+    if (info->has_dirty_flag && info->dirty_flag)
+    {
         func_fprintf(f, "cleanly shut down: no\n");
     }
 
-    if (info->has_backing_filename) {
+    if (info->has_backing_filename)
+    {
         func_fprintf(f, "backing file: %s", info->backing_filename);
-        if (!info->has_full_backing_filename) {
+        if (!info->has_full_backing_filename)
+        {
             func_fprintf(f, " (cannot determine actual path)");
-        } else if (strcmp(info->backing_filename,
-                          info->full_backing_filename) != 0) {
+        }
+        else if (strcmp(info->backing_filename,
+                        info->full_backing_filename) != 0)
+        {
             func_fprintf(f, " (actual path: %s)", info->full_backing_filename);
         }
         func_fprintf(f, "\n");
-        if (info->has_backing_filename_format) {
+        if (info->has_backing_filename_format)
+        {
             func_fprintf(f, "backing file format: %s\n",
                          info->backing_filename_format);
         }
     }
 
-    if (info->has_snapshots) {
+    if (info->has_snapshots)
+    {
         SnapshotInfoList *elem;
 
         func_fprintf(f, "Snapshot list:\n");
@@ -760,7 +832,8 @@ void bdrv_image_info_dump(fprintf_function func_fprintf, void *f,
         /* Ideally bdrv_snapshot_dump() would operate on SnapshotInfoList but
          * we convert to the block layer's native QEMUSnapshotInfo for now.
          */
-        for (elem = info->snapshots; elem; elem = elem->next) {
+        for (elem = info->snapshots; elem; elem = elem->next)
+        {
             QEMUSnapshotInfo sn = {
                 .vm_state_size = elem->value->vm_state_size,
                 .date_sec = elem->value->date_sec,
@@ -776,7 +849,8 @@ void bdrv_image_info_dump(fprintf_function func_fprintf, void *f,
         }
     }
 
-    if (info->has_format_specific) {
+    if (info->has_format_specific)
+    {
         func_fprintf(f, "Format specific information:\n");
         bdrv_image_info_specific_dump(func_fprintf, f, info->format_specific);
     }

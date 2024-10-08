@@ -42,32 +42,37 @@
 // not allocated: 0xffffffff
 
 // always little-endian
-struct bochs_header {
-    char magic[32];     /* "Bochs Virtual HD Image" */
-    char type[16];      /* "Redolog" */
-    char subtype[16];   /* "Undoable" / "Volatile" / "Growing" */
+struct bochs_header
+{
+    char magic[32];   /* "Bochs Virtual HD Image" */
+    char type[16];    /* "Redolog" */
+    char subtype[16]; /* "Undoable" / "Volatile" / "Growing" */
     uint32_t version;
-    uint32_t header;    /* size of header */
+    uint32_t header; /* size of header */
 
-    uint32_t catalog;   /* num of entries */
-    uint32_t bitmap;    /* bitmap size */
-    uint32_t extent;    /* extent size */
+    uint32_t catalog; /* num of entries */
+    uint32_t bitmap;  /* bitmap size */
+    uint32_t extent;  /* extent size */
 
-    union {
-        struct {
-            uint32_t reserved;  /* for ??? */
-            uint64_t disk;      /* disk size */
+    union
+    {
+        struct
+        {
+            uint32_t reserved; /* for ??? */
+            uint64_t disk;     /* disk size */
             char padding[HEADER_SIZE - 64 - 20 - 12];
         } QEMU_PACKED redolog;
-        struct {
-            uint64_t disk;      /* disk size */
+        struct
+        {
+            uint64_t disk; /* disk size */
             char padding[HEADER_SIZE - 64 - 20 - 8];
         } QEMU_PACKED redolog_v1;
         char padding[HEADER_SIZE - 64 - 20];
     } extra;
 } QEMU_PACKED;
 
-typedef struct BDRVBochsState {
+typedef struct BDRVBochsState
+{
     CoMutex lock;
     uint32_t *catalog_bitmap;
     uint32_t catalog_size;
@@ -84,14 +89,14 @@ static int bochs_probe(const uint8_t *buf, int buf_size, const char *filename)
     const struct bochs_header *bochs = (const void *)buf;
 
     if (buf_size < HEADER_SIZE)
-	return 0;
+        return 0;
 
     if (!strcmp(bochs->magic, HEADER_MAGIC) &&
-	!strcmp(bochs->type, REDOLOG_TYPE) &&
-	!strcmp(bochs->subtype, GROWING_TYPE) &&
-	((le32_to_cpu(bochs->version) == HEADER_VERSION) ||
-	(le32_to_cpu(bochs->version) == HEADER_V1)))
-	return 100;
+        !strcmp(bochs->type, REDOLOG_TYPE) &&
+        !strcmp(bochs->subtype, GROWING_TYPE) &&
+        ((le32_to_cpu(bochs->version) == HEADER_VERSION) ||
+         (le32_to_cpu(bochs->version) == HEADER_V1)))
+        return 100;
 
     return 0;
 }
@@ -107,47 +112,55 @@ static int bochs_open(BlockDriverState *bs, QDict *options, int flags,
     bs->read_only = true; /* no write support yet */
 
     ret = bdrv_pread(bs->file, 0, &bochs, sizeof(bochs));
-    if (ret < 0) {
+    if (ret < 0)
+    {
         return ret;
     }
 
     if (strcmp(bochs.magic, HEADER_MAGIC) ||
         strcmp(bochs.type, REDOLOG_TYPE) ||
         strcmp(bochs.subtype, GROWING_TYPE) ||
-	((le32_to_cpu(bochs.version) != HEADER_VERSION) &&
-	(le32_to_cpu(bochs.version) != HEADER_V1))) {
+        ((le32_to_cpu(bochs.version) != HEADER_VERSION) &&
+         (le32_to_cpu(bochs.version) != HEADER_V1)))
+    {
         error_setg(errp, "Image not in Bochs format");
         return -EINVAL;
     }
 
-    if (le32_to_cpu(bochs.version) == HEADER_V1) {
+    if (le32_to_cpu(bochs.version) == HEADER_V1)
+    {
         bs->total_sectors = le64_to_cpu(bochs.extra.redolog_v1.disk) / 512;
-    } else {
+    }
+    else
+    {
         bs->total_sectors = le64_to_cpu(bochs.extra.redolog.disk) / 512;
     }
 
     /* Limit to 1M entries to avoid unbounded allocation. This is what is
      * needed for the largest image that bximage can create (~8 TB). */
     s->catalog_size = le32_to_cpu(bochs.catalog);
-    if (s->catalog_size > 0x100000) {
+    if (s->catalog_size > 0x100000)
+    {
         error_setg(errp, "Catalog size is too large");
         return -EFBIG;
     }
 
     s->catalog_bitmap = g_try_new(uint32_t, s->catalog_size);
-    if (s->catalog_size && s->catalog_bitmap == NULL) {
+    if (s->catalog_size && s->catalog_bitmap == NULL)
+    {
         error_setg(errp, "Could not allocate memory for catalog");
         return -ENOMEM;
     }
 
     ret = bdrv_pread(bs->file, le32_to_cpu(bochs.header), s->catalog_bitmap,
                      s->catalog_size * 4);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto fail;
     }
 
     for (i = 0; i < s->catalog_size; i++)
-	le32_to_cpus(&s->catalog_bitmap[i]);
+        le32_to_cpus(&s->catalog_bitmap[i]);
 
     s->data_offset = le32_to_cpu(bochs.header) + (s->catalog_size * 4);
 
@@ -155,17 +168,22 @@ static int bochs_open(BlockDriverState *bs, QDict *options, int flags,
     s->extent_blocks = 1 + (le32_to_cpu(bochs.extent) - 1) / 512;
 
     s->extent_size = le32_to_cpu(bochs.extent);
-    if (s->extent_size < BDRV_SECTOR_SIZE) {
+    if (s->extent_size < BDRV_SECTOR_SIZE)
+    {
         /* bximage actually never creates extents smaller than 4k */
         error_setg(errp, "Extent size must be at least 512");
         ret = -EINVAL;
         goto fail;
-    } else if (!is_power_of_2(s->extent_size)) {
+    }
+    else if (!is_power_of_2(s->extent_size))
+    {
         error_setg(errp, "Extent size %" PRIu32 " is not a power of two",
                    s->extent_size);
         ret = -EINVAL;
         goto fail;
-    } else if (s->extent_size > 0x800000) {
+    }
+    else if (s->extent_size > 0x800000)
+    {
         error_setg(errp, "Extent size %" PRIu32 " is too large",
                    s->extent_size);
         ret = -EINVAL;
@@ -205,23 +223,26 @@ static int64_t seek_to_sector(BlockDriverState *bs, int64_t sector_num)
     extent_index = offset / s->extent_size;
     extent_offset = (offset % s->extent_size) / 512;
 
-    if (s->catalog_bitmap[extent_index] == 0xffffffff) {
-	return 0; /* not allocated */
+    if (s->catalog_bitmap[extent_index] == 0xffffffff)
+    {
+        return 0; /* not allocated */
     }
 
     bitmap_offset = s->data_offset +
-        (512 * (uint64_t) s->catalog_bitmap[extent_index] *
-        (s->extent_blocks + s->bitmap_blocks));
+                    (512 * (uint64_t)s->catalog_bitmap[extent_index] *
+                     (s->extent_blocks + s->bitmap_blocks));
 
     /* read in bitmap for current extent */
     ret = bdrv_pread(bs->file, bitmap_offset + (extent_offset / 8),
                      &bitmap_entry, 1);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         return ret;
     }
 
-    if (!((bitmap_entry >> (extent_offset % 8)) & 1)) {
-	return 0; /* not allocated */
+    if (!((bitmap_entry >> (extent_offset % 8)) & 1))
+    {
+        return 0; /* not allocated */
     }
 
     return bitmap_offset + (512 * (s->bitmap_blocks + extent_offset));
@@ -244,9 +265,11 @@ bochs_co_preadv(BlockDriverState *bs, uint64_t offset, uint64_t bytes,
     qemu_iovec_init(&local_qiov, qiov->niov);
     qemu_co_mutex_lock(&s->lock);
 
-    while (nb_sectors > 0) {
+    while (nb_sectors > 0)
+    {
         int64_t block_offset = seek_to_sector(bs, sector_num);
-        if (block_offset < 0) {
+        if (block_offset < 0)
+        {
             ret = block_offset;
             goto fail;
         }
@@ -254,13 +277,17 @@ bochs_co_preadv(BlockDriverState *bs, uint64_t offset, uint64_t bytes,
         qemu_iovec_reset(&local_qiov);
         qemu_iovec_concat(&local_qiov, qiov, bytes_done, 512);
 
-        if (block_offset > 0) {
+        if (block_offset > 0)
+        {
             ret = bdrv_co_preadv(bs->file, block_offset, 512,
                                  &local_qiov, 0);
-            if (ret < 0) {
+            if (ret < 0)
+            {
                 goto fail;
             }
-        } else {
+        }
+        else
+        {
             qemu_iovec_memset(&local_qiov, 0, 0, 512);
         }
         nb_sectors--;
@@ -283,13 +310,13 @@ static void bochs_close(BlockDriverState *bs)
 }
 
 static BlockDriver bdrv_bochs = {
-    .format_name	= "bochs",
-    .instance_size	= sizeof(BDRVBochsState),
-    .bdrv_probe		= bochs_probe,
-    .bdrv_open		= bochs_open,
+    .format_name = "bochs",
+    .instance_size = sizeof(BDRVBochsState),
+    .bdrv_probe = bochs_probe,
+    .bdrv_open = bochs_open,
     .bdrv_refresh_limits = bochs_refresh_limits,
     .bdrv_co_preadv = bochs_co_preadv,
-    .bdrv_close		= bochs_close,
+    .bdrv_close = bochs_close,
 };
 
 static void bdrv_bochs_init(void)

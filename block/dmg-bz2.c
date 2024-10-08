@@ -35,7 +35,8 @@ static int dmg_uncompress_bz2_do(char *next_in, unsigned int avail_in,
     bz_stream bzstream = {};
 
     ret = BZ2_bzDecompressInit(&bzstream, 0, 0);
-    if (ret != BZ_OK) {
+    if (ret != BZ_OK)
+    {
         return -1;
     }
     bzstream.next_in = next_in;
@@ -47,14 +48,14 @@ static int dmg_uncompress_bz2_do(char *next_in, unsigned int avail_in,
                 bzstream.total_out_lo32;
     BZ2_bzDecompressEnd(&bzstream);
     if (ret != BZ_STREAM_END ||
-        total_out != avail_out) {
+        total_out != avail_out)
+    {
         return -1;
     }
     return 0;
 }
 
-__attribute__((constructor))
-static void dmg_bz2_init(void)
+__attribute__((constructor)) static void dmg_bz2_init(void)
 {
     assert(!dmg_uncompress_bz2);
     dmg_uncompress_bz2 = dmg_uncompress_bz2_do;

@@ -37,23 +37,25 @@
 
 typedef struct BlockCrypto BlockCrypto;
 
-struct BlockCrypto {
+struct BlockCrypto
+{
     QCryptoBlock *block;
 };
-
 
 static int block_crypto_probe_generic(QCryptoBlockFormat format,
                                       const uint8_t *buf,
                                       int buf_size,
                                       const char *filename)
 {
-    if (qcrypto_block_has_format(format, buf, buf_size)) {
+    if (qcrypto_block_has_format(format, buf, buf_size))
+    {
         return 100;
-    } else {
+    }
+    else
+    {
         return 0;
     }
 }
-
 
 static ssize_t block_crypto_read_func(QCryptoBlock *block,
                                       size_t offset,
@@ -66,21 +68,21 @@ static ssize_t block_crypto_read_func(QCryptoBlock *block,
     ssize_t ret;
 
     ret = bdrv_pread(bs->file, offset, buf, buflen);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         error_setg_errno(errp, -ret, "Could not read encryption header");
         return ret;
     }
     return ret;
 }
 
-
-struct BlockCryptoCreateData {
+struct BlockCryptoCreateData
+{
     const char *filename;
     QemuOpts *opts;
     BlockBackend *blk;
     uint64_t size;
 };
-
 
 static ssize_t block_crypto_write_func(QCryptoBlock *block,
                                        size_t offset,
@@ -93,13 +95,13 @@ static ssize_t block_crypto_write_func(QCryptoBlock *block,
     ssize_t ret;
 
     ret = blk_pwrite(data->blk, offset, buf, buflen, 0);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         error_setg_errno(errp, -ret, "Could not write encryption header");
         return ret;
     }
     return ret;
 }
-
 
 static ssize_t block_crypto_init_func(QCryptoBlock *block,
                                       size_t headerlen,
@@ -117,19 +119,20 @@ static ssize_t block_crypto_init_func(QCryptoBlock *block,
 
     qemu_opt_set_number(data->opts, BLOCK_OPT_SIZE, data->size, &error_abort);
     ret = bdrv_create_file(data->filename, data->opts, errp);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         return -1;
     }
 
     data->blk = blk_new_open(data->filename, NULL, NULL,
                              BDRV_O_RDWR | BDRV_O_PROTOCOL, errp);
-    if (!data->blk) {
+    if (!data->blk)
+    {
         return -1;
     }
 
     return 0;
 }
-
 
 static QemuOptsList block_crypto_runtime_opts_luks = {
     .name = "crypto",
@@ -140,20 +143,16 @@ static QemuOptsList block_crypto_runtime_opts_luks = {
             .type = QEMU_OPT_STRING,
             .help = "ID of the secret that provides the encryption key",
         },
-        { /* end of list */ }
-    },
+        {/* end of list */}},
 };
-
 
 static QemuOptsList block_crypto_create_opts_luks = {
     .name = "crypto",
     .head = QTAILQ_HEAD_INITIALIZER(block_crypto_create_opts_luks.head),
     .desc = {
-        {
-            .name = BLOCK_OPT_SIZE,
-            .type = QEMU_OPT_SIZE,
-            .help = "Virtual disk size"
-        },
+        {.name = BLOCK_OPT_SIZE,
+         .type = QEMU_OPT_SIZE,
+         .help = "Virtual disk size"},
         {
             .name = BLOCK_CRYPTO_OPT_LUKS_KEY_SECRET,
             .type = QEMU_OPT_STRING,
@@ -189,10 +188,8 @@ static QemuOptsList block_crypto_create_opts_luks = {
             .type = QEMU_OPT_NUMBER,
             .help = "Time to spend in PBKDF in milliseconds",
         },
-        { /* end of list */ }
-    },
+        {/* end of list */}},
 };
-
 
 static QCryptoBlockOpenOptions *
 block_crypto_open_opts_init(QCryptoBlockFormat format,
@@ -209,11 +206,13 @@ block_crypto_open_opts_init(QCryptoBlockFormat format,
     v = opts_visitor_new(opts);
 
     visit_start_struct(v, NULL, NULL, 0, &local_err);
-    if (local_err) {
+    if (local_err)
+    {
         goto out;
     }
 
-    switch (format) {
+    switch (format)
+    {
     case Q_CRYPTO_BLOCK_FORMAT_LUKS:
         visit_type_QCryptoBlockOptionsLUKS_members(
             v, &ret->u.luks, &local_err);
@@ -223,14 +222,16 @@ block_crypto_open_opts_init(QCryptoBlockFormat format,
         error_setg(&local_err, "Unsupported block format %d", format);
         break;
     }
-    if (!local_err) {
+    if (!local_err)
+    {
         visit_check_struct(v, &local_err);
     }
 
     visit_end_struct(v, NULL);
 
- out:
-    if (local_err) {
+out:
+    if (local_err)
+    {
         error_propagate(errp, local_err);
         qapi_free_QCryptoBlockOpenOptions(ret);
         ret = NULL;
@@ -238,7 +239,6 @@ block_crypto_open_opts_init(QCryptoBlockFormat format,
     visit_free(v);
     return ret;
 }
-
 
 static QCryptoBlockCreateOptions *
 block_crypto_create_opts_init(QCryptoBlockFormat format,
@@ -255,11 +255,13 @@ block_crypto_create_opts_init(QCryptoBlockFormat format,
     v = opts_visitor_new(opts);
 
     visit_start_struct(v, NULL, NULL, 0, &local_err);
-    if (local_err) {
+    if (local_err)
+    {
         goto out;
     }
 
-    switch (format) {
+    switch (format)
+    {
     case Q_CRYPTO_BLOCK_FORMAT_LUKS:
         visit_type_QCryptoBlockCreateOptionsLUKS_members(
             v, &ret->u.luks, &local_err);
@@ -269,14 +271,16 @@ block_crypto_create_opts_init(QCryptoBlockFormat format,
         error_setg(&local_err, "Unsupported block format %d", format);
         break;
     }
-    if (!local_err) {
+    if (!local_err)
+    {
         visit_check_struct(v, &local_err);
     }
 
     visit_end_struct(v, NULL);
 
- out:
-    if (local_err) {
+out:
+    if (local_err)
+    {
         error_propagate(errp, local_err);
         qapi_free_QCryptoBlockCreateOptions(ret);
         ret = NULL;
@@ -284,7 +288,6 @@ block_crypto_create_opts_init(QCryptoBlockFormat format,
     visit_free(v);
     return ret;
 }
-
 
 static int block_crypto_open_generic(QCryptoBlockFormat format,
                                      QemuOptsList *opts_spec,
@@ -302,17 +305,20 @@ static int block_crypto_open_generic(QCryptoBlockFormat format,
 
     opts = qemu_opts_create(opts_spec, NULL, 0, &error_abort);
     qemu_opts_absorb_qdict(opts, options, &local_err);
-    if (local_err) {
+    if (local_err)
+    {
         error_propagate(errp, local_err);
         goto cleanup;
     }
 
     open_opts = block_crypto_open_opts_init(format, opts, errp);
-    if (!open_opts) {
+    if (!open_opts)
+    {
         goto cleanup;
     }
 
-    if (flags & BDRV_O_NO_IO) {
+    if (flags & BDRV_O_NO_IO)
+    {
         cflags |= QCRYPTO_BLOCK_OPEN_NO_IO;
     }
     crypto->block = qcrypto_block_open(open_opts,
@@ -321,7 +327,8 @@ static int block_crypto_open_generic(QCryptoBlockFormat format,
                                        cflags,
                                        errp);
 
-    if (!crypto->block) {
+    if (!crypto->block)
+    {
         ret = -EIO;
         goto cleanup;
     }
@@ -330,11 +337,10 @@ static int block_crypto_open_generic(QCryptoBlockFormat format,
     bs->valid_key = true;
 
     ret = 0;
- cleanup:
+cleanup:
     qapi_free_QCryptoBlockOpenOptions(open_opts);
     return ret;
 }
-
 
 static int block_crypto_create_generic(QCryptoBlockFormat format,
                                        const char *filename,
@@ -352,7 +358,8 @@ static int block_crypto_create_generic(QCryptoBlockFormat format,
     };
 
     create_opts = block_crypto_create_opts_init(format, opts, errp);
-    if (!create_opts) {
+    if (!create_opts)
+    {
         return -1;
     }
 
@@ -362,13 +369,14 @@ static int block_crypto_create_generic(QCryptoBlockFormat format,
                                   &data,
                                   errp);
 
-    if (!crypto) {
+    if (!crypto)
+    {
         ret = -EIO;
         goto cleanup;
     }
 
     ret = 0;
- cleanup:
+cleanup:
     qcrypto_block_free(crypto);
     blk_unref(data.blk);
     qapi_free_QCryptoBlockCreateOptions(create_opts);
@@ -391,7 +399,6 @@ static void block_crypto_close(BlockDriverState *bs)
     BlockCrypto *crypto = bs->opaque;
     qcrypto_block_free(crypto->block);
 }
-
 
 #define BLOCK_CRYPTO_MAX_SECTORS 32
 
@@ -417,15 +424,18 @@ block_crypto_co_readv(BlockDriverState *bs, int64_t sector_num,
     cipher_data =
         qemu_try_blockalign(bs->file->bs, MIN(BLOCK_CRYPTO_MAX_SECTORS * 512,
                                               qiov->size));
-    if (cipher_data == NULL) {
+    if (cipher_data == NULL)
+    {
         ret = -ENOMEM;
         goto cleanup;
     }
 
-    while (remaining_sectors) {
+    while (remaining_sectors)
+    {
         cur_nr_sectors = remaining_sectors;
 
-        if (cur_nr_sectors > BLOCK_CRYPTO_MAX_SECTORS) {
+        if (cur_nr_sectors > BLOCK_CRYPTO_MAX_SECTORS)
+        {
             cur_nr_sectors = BLOCK_CRYPTO_MAX_SECTORS;
         }
 
@@ -435,14 +445,16 @@ block_crypto_co_readv(BlockDriverState *bs, int64_t sector_num,
         ret = bdrv_co_readv(bs->file,
                             payload_offset + sector_num,
                             cur_nr_sectors, &hd_qiov);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto cleanup;
         }
 
         if (qcrypto_block_decrypt(crypto->block,
                                   sector_num,
                                   cipher_data, cur_nr_sectors * 512,
-                                  NULL) < 0) {
+                                  NULL) < 0)
+        {
             ret = -EIO;
             goto cleanup;
         }
@@ -455,13 +467,12 @@ block_crypto_co_readv(BlockDriverState *bs, int64_t sector_num,
         bytes_done += cur_nr_sectors * 512;
     }
 
- cleanup:
+cleanup:
     qemu_iovec_destroy(&hd_qiov);
     qemu_vfree(cipher_data);
 
     return ret;
 }
-
 
 static coroutine_fn int
 block_crypto_co_writev(BlockDriverState *bs, int64_t sector_num,
@@ -485,15 +496,18 @@ block_crypto_co_writev(BlockDriverState *bs, int64_t sector_num,
     cipher_data =
         qemu_try_blockalign(bs->file->bs, MIN(BLOCK_CRYPTO_MAX_SECTORS * 512,
                                               qiov->size));
-    if (cipher_data == NULL) {
+    if (cipher_data == NULL)
+    {
         ret = -ENOMEM;
         goto cleanup;
     }
 
-    while (remaining_sectors) {
+    while (remaining_sectors)
+    {
         cur_nr_sectors = remaining_sectors;
 
-        if (cur_nr_sectors > BLOCK_CRYPTO_MAX_SECTORS) {
+        if (cur_nr_sectors > BLOCK_CRYPTO_MAX_SECTORS)
+        {
             cur_nr_sectors = BLOCK_CRYPTO_MAX_SECTORS;
         }
 
@@ -503,7 +517,8 @@ block_crypto_co_writev(BlockDriverState *bs, int64_t sector_num,
         if (qcrypto_block_encrypt(crypto->block,
                                   sector_num,
                                   cipher_data, cur_nr_sectors * 512,
-                                  NULL) < 0) {
+                                  NULL) < 0)
+        {
             ret = -EIO;
             goto cleanup;
         }
@@ -514,7 +529,8 @@ block_crypto_co_writev(BlockDriverState *bs, int64_t sector_num,
         ret = bdrv_co_writev(bs->file,
                              payload_offset + sector_num,
                              cur_nr_sectors, &hd_qiov);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto cleanup;
         }
 
@@ -523,13 +539,12 @@ block_crypto_co_writev(BlockDriverState *bs, int64_t sector_num,
         bytes_done += cur_nr_sectors * 512;
     }
 
- cleanup:
+cleanup:
     qemu_iovec_destroy(&hd_qiov);
     qemu_vfree(cipher_data);
 
     return ret;
 }
-
 
 static int64_t block_crypto_getlength(BlockDriverState *bs)
 {
@@ -543,10 +558,10 @@ static int64_t block_crypto_getlength(BlockDriverState *bs)
     return len;
 }
 
-
 static int block_crypto_probe_luks(const uint8_t *buf,
                                    int buf_size,
-                                   const char *filename) {
+                                   const char *filename)
+{
     return block_crypto_probe_generic(Q_CRYPTO_BLOCK_FORMAT_LUKS,
                                       buf, buf_size, filename);
 }
@@ -576,7 +591,8 @@ static int block_crypto_get_info_luks(BlockDriverState *bs,
     int ret;
 
     ret = bdrv_get_info(bs->file->bs, &subbdi);
-    if (ret != 0) {
+    if (ret != 0)
+    {
         return ret;
     }
 
@@ -595,10 +611,12 @@ block_crypto_get_specific_info_luks(BlockDriverState *bs)
     QCryptoBlockInfo *info;
 
     info = qcrypto_block_get_info(crypto->block, NULL);
-    if (!info) {
+    if (!info)
+    {
         return NULL;
     }
-    if (info->format != Q_CRYPTO_BLOCK_FORMAT_LUKS) {
+    if (info->format != Q_CRYPTO_BLOCK_FORMAT_LUKS)
+    {
         qapi_free_QCryptoBlockInfo(info);
         return NULL;
     }
@@ -617,19 +635,19 @@ block_crypto_get_specific_info_luks(BlockDriverState *bs)
 }
 
 BlockDriver bdrv_crypto_luks = {
-    .format_name        = "luks",
-    .instance_size      = sizeof(BlockCrypto),
-    .bdrv_probe         = block_crypto_probe_luks,
-    .bdrv_open          = block_crypto_open_luks,
-    .bdrv_close         = block_crypto_close,
-    .bdrv_create        = block_crypto_create_luks,
-    .bdrv_truncate      = block_crypto_truncate,
-    .create_opts        = &block_crypto_create_opts_luks,
+    .format_name = "luks",
+    .instance_size = sizeof(BlockCrypto),
+    .bdrv_probe = block_crypto_probe_luks,
+    .bdrv_open = block_crypto_open_luks,
+    .bdrv_close = block_crypto_close,
+    .bdrv_create = block_crypto_create_luks,
+    .bdrv_truncate = block_crypto_truncate,
+    .create_opts = &block_crypto_create_opts_luks,
 
-    .bdrv_co_readv      = block_crypto_co_readv,
-    .bdrv_co_writev     = block_crypto_co_writev,
-    .bdrv_getlength     = block_crypto_getlength,
-    .bdrv_get_info      = block_crypto_get_info_luks,
+    .bdrv_co_readv = block_crypto_co_readv,
+    .bdrv_co_writev = block_crypto_co_writev,
+    .bdrv_getlength = block_crypto_getlength,
+    .bdrv_get_info = block_crypto_get_info_luks,
     .bdrv_get_specific_info = block_crypto_get_specific_info_luks,
 };
 

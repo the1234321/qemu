@@ -21,7 +21,8 @@
 #include "qemu/ratelimit.h"
 #include "sysemu/block-backend.h"
 
-enum {
+enum
+{
     /*
      * Size of data buffer for populating the image file.  This should be large
      * enough to process multiple clusters in a single call, so that populating
@@ -32,7 +33,8 @@ enum {
 
 #define SLICE_TIME 100000000ULL /* ns */
 
-typedef struct CommitBlockJob {
+typedef struct CommitBlockJob
+{
     BlockJob common;
     RateLimit limit;
     BlockDriverState *active;
@@ -59,20 +61,23 @@ static int coroutine_fn commit_populate(BlockBackend *bs, BlockBackend *base,
 
     ret = blk_co_preadv(bs, sector_num * BDRV_SECTOR_SIZE,
                         qiov.size, &qiov, 0);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         return ret;
     }
 
     ret = blk_co_pwritev(base, sector_num * BDRV_SECTOR_SIZE,
                          qiov.size, &qiov, 0);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         return ret;
     }
 
     return 0;
 }
 
-typedef struct {
+typedef struct
+{
     int ret;
 } CommitCompleteData;
 
@@ -86,7 +91,8 @@ static void commit_complete(BlockJob *job, void *opaque)
     BlockDriverState *overlay_bs = bdrv_find_overlay(active, top);
     int ret = data->ret;
 
-    if (!block_job_is_cancelled(&s->common) && ret == 0) {
+    if (!block_job_is_cancelled(&s->common) && ret == 0)
+    {
         /* success */
         ret = bdrv_drop_intermediate(active, top, base, s->backing_file_str);
     }
@@ -94,10 +100,12 @@ static void commit_complete(BlockJob *job, void *opaque)
     /* restore base open flags here if appropriate (e.g., change the base back
      * to r/o). These reopens do not need to be atomic, since we won't abort
      * even on failure here */
-    if (s->base_flags != bdrv_get_flags(base)) {
+    if (s->base_flags != bdrv_get_flags(base))
+    {
         bdrv_reopen(base, s->base_flags, NULL);
     }
-    if (overlay_bs && s->orig_overlay_flags != bdrv_get_flags(overlay_bs)) {
+    if (overlay_bs && s->orig_overlay_flags != bdrv_get_flags(overlay_bs))
+    {
         bdrv_reopen(overlay_bs, s->orig_overlay_flags, NULL);
     }
     g_free(s->backing_file_str);
@@ -121,19 +129,22 @@ static void coroutine_fn commit_run(void *opaque)
 
     ret = s->common.len = blk_getlength(s->top);
 
-
-    if (s->common.len < 0) {
+    if (s->common.len < 0)
+    {
         goto out;
     }
 
     ret = base_len = blk_getlength(s->base);
-    if (base_len < 0) {
+    if (base_len < 0)
+    {
         goto out;
     }
 
-    if (base_len < s->common.len) {
+    if (base_len < s->common.len)
+    {
         ret = blk_truncate(s->base, s->common.len);
-        if (ret) {
+        if (ret)
+        {
             goto out;
         }
     }
@@ -141,14 +152,16 @@ static void coroutine_fn commit_run(void *opaque)
     end = s->common.len >> BDRV_SECTOR_BITS;
     buf = blk_blockalign(s->top, COMMIT_BUFFER_SIZE);
 
-    for (sector_num = 0; sector_num < end; sector_num += n) {
+    for (sector_num = 0; sector_num < end; sector_num += n)
+    {
         bool copy;
 
         /* Note that even when no rate limit is applied we need to yield
          * with no pending I/O here so that bdrv_drain_all() returns.
          */
         block_job_sleep_ns(&s->common, QEMU_CLOCK_REALTIME, delay_ns);
-        if (block_job_is_cancelled(&s->common)) {
+        if (block_job_is_cancelled(&s->common))
+        {
             break;
         }
         /* Copy if allocated above the base */
@@ -158,16 +171,21 @@ static void coroutine_fn commit_run(void *opaque)
                                       &n);
         copy = (ret == 1);
         trace_commit_one_iteration(s, sector_num, n, ret);
-        if (copy) {
+        if (copy)
+        {
             ret = commit_populate(s->top, s->base, sector_num, n, buf);
             bytes_written += n * BDRV_SECTOR_SIZE;
         }
-        if (ret < 0) {
+        if (ret < 0)
+        {
             BlockErrorAction action =
                 block_job_error_action(&s->common, false, s->on_error, -ret);
-            if (action == BLOCK_ERROR_ACTION_REPORT) {
+            if (action == BLOCK_ERROR_ACTION_REPORT)
+            {
                 goto out;
-            } else {
+            }
+            else
+            {
                 n = 0;
                 continue;
             }
@@ -175,7 +193,8 @@ static void coroutine_fn commit_run(void *opaque)
         /* Publish progress */
         s->common.offset += n * BDRV_SECTOR_SIZE;
 
-        if (copy && s->common.speed) {
+        if (copy && s->common.speed)
+        {
             delay_ns = ratelimit_calculate_delay(&s->limit, n);
         }
     }
@@ -194,7 +213,8 @@ static void commit_set_speed(BlockJob *job, int64_t speed, Error **errp)
 {
     CommitBlockJob *s = container_of(job, CommitBlockJob, common);
 
-    if (speed < 0) {
+    if (speed < 0)
+    {
         error_setg(errp, QERR_INVALID_PARAMETER, "speed");
         return;
     }
@@ -203,9 +223,9 @@ static void commit_set_speed(BlockJob *job, int64_t speed, Error **errp)
 
 static const BlockJobDriver commit_job_driver = {
     .instance_size = sizeof(CommitBlockJob),
-    .job_type      = BLOCK_JOB_TYPE_COMMIT,
-    .set_speed     = commit_set_speed,
-    .start         = commit_run,
+    .job_type = BLOCK_JOB_TYPE_COMMIT,
+    .set_speed = commit_set_speed,
+    .start = commit_run,
 };
 
 void commit_start(const char *job_id, BlockDriverState *bs,
@@ -222,56 +242,64 @@ void commit_start(const char *job_id, BlockDriverState *bs,
     Error *local_err = NULL;
 
     assert(top != bs);
-    if (top == base) {
+    if (top == base)
+    {
         error_setg(errp, "Invalid files for merge: top and base are the same");
         return;
     }
 
     overlay_bs = bdrv_find_overlay(bs, top);
 
-    if (overlay_bs == NULL) {
+    if (overlay_bs == NULL)
+    {
         error_setg(errp, "Could not find overlay image for %s:", top->filename);
         return;
     }
 
     s = block_job_create(job_id, &commit_job_driver, bs, speed,
                          BLOCK_JOB_DEFAULT, NULL, NULL, errp);
-    if (!s) {
+    if (!s)
+    {
         return;
     }
 
-    orig_base_flags    = bdrv_get_flags(base);
+    orig_base_flags = bdrv_get_flags(base);
     orig_overlay_flags = bdrv_get_flags(overlay_bs);
 
     /* convert base & overlay_bs to r/w, if necessary */
-    if (!(orig_base_flags & BDRV_O_RDWR)) {
+    if (!(orig_base_flags & BDRV_O_RDWR))
+    {
         reopen_queue = bdrv_reopen_queue(reopen_queue, base, NULL,
                                          orig_base_flags | BDRV_O_RDWR);
     }
-    if (!(orig_overlay_flags & BDRV_O_RDWR)) {
+    if (!(orig_overlay_flags & BDRV_O_RDWR))
+    {
         reopen_queue = bdrv_reopen_queue(reopen_queue, overlay_bs, NULL,
                                          orig_overlay_flags | BDRV_O_RDWR);
     }
-    if (reopen_queue) {
+    if (reopen_queue)
+    {
         bdrv_reopen_multiple(bdrv_get_aio_context(bs), reopen_queue, &local_err);
-        if (local_err != NULL) {
+        if (local_err != NULL)
+        {
             error_propagate(errp, local_err);
             block_job_unref(&s->common);
             return;
         }
     }
 
-
     /* Block all nodes between top and base, because they will
      * disappear from the chain after this operation. */
     assert(bdrv_chain_contains(top, base));
-    for (iter = top; iter != backing_bs(base); iter = backing_bs(iter)) {
+    for (iter = top; iter != backing_bs(base); iter = backing_bs(iter))
+    {
         block_job_add_bdrv(&s->common, iter);
     }
     /* overlay_bs must be blocked because it needs to be modified to
      * update the backing image string, but if it's the root node then
      * don't block it again */
-    if (bs != overlay_bs) {
+    if (bs != overlay_bs)
+    {
         block_job_add_bdrv(&s->common, overlay_bs);
     }
 
@@ -283,8 +311,8 @@ void commit_start(const char *job_id, BlockDriverState *bs,
 
     s->active = bs;
 
-    s->base_flags          = orig_base_flags;
-    s->orig_overlay_flags  = orig_overlay_flags;
+    s->base_flags = orig_base_flags;
+    s->orig_overlay_flags = orig_overlay_flags;
 
     s->backing_file_str = g_strdup(backing_file_str);
 
@@ -293,7 +321,6 @@ void commit_start(const char *job_id, BlockDriverState *bs,
     trace_commit_start(bs, base, top, s);
     block_job_start(&s->common);
 }
-
 
 #define COMMIT_BUF_SECTORS 2048
 
@@ -310,20 +337,24 @@ int bdrv_commit(BlockDriverState *bs)
     if (!drv)
         return -ENOMEDIUM;
 
-    if (!bs->backing) {
+    if (!bs->backing)
+    {
         return -ENOTSUP;
     }
 
     if (bdrv_op_is_blocked(bs, BLOCK_OP_TYPE_COMMIT_SOURCE, NULL) ||
-        bdrv_op_is_blocked(bs->backing->bs, BLOCK_OP_TYPE_COMMIT_TARGET, NULL)) {
+        bdrv_op_is_blocked(bs->backing->bs, BLOCK_OP_TYPE_COMMIT_TARGET, NULL))
+    {
         return -EBUSY;
     }
 
     ro = bs->backing->bs->read_only;
-    open_flags =  bs->backing->bs->open_flags;
+    open_flags = bs->backing->bs->open_flags;
 
-    if (ro) {
-        if (bdrv_reopen(bs->backing->bs, open_flags | BDRV_O_RDWR, NULL)) {
+    if (ro)
+    {
+        if (bdrv_reopen(bs->backing->bs, open_flags | BDRV_O_RDWR, NULL))
+        {
             return -EACCES;
         }
     }
@@ -335,13 +366,15 @@ int bdrv_commit(BlockDriverState *bs)
     blk_insert_bs(backing, bs->backing->bs);
 
     length = blk_getlength(src);
-    if (length < 0) {
+    if (length < 0)
+    {
         ret = length;
         goto ro_cleanup;
     }
 
     backing_length = blk_getlength(backing);
-    if (backing_length < 0) {
+    if (backing_length < 0)
+    {
         ret = backing_length;
         goto ro_cleanup;
     }
@@ -349,9 +382,11 @@ int bdrv_commit(BlockDriverState *bs)
     /* If our top snapshot is larger than the backing file image,
      * grow the backing file image if possible.  If not possible,
      * we must return an error */
-    if (length > backing_length) {
+    if (length > backing_length)
+    {
         ret = blk_truncate(backing, length);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto ro_cleanup;
         }
     }
@@ -361,34 +396,42 @@ int bdrv_commit(BlockDriverState *bs)
     /* blk_try_blockalign() for src will choose an alignment that works for
      * backing as well, so no need to compare the alignment manually. */
     buf = blk_try_blockalign(src, COMMIT_BUF_SECTORS * BDRV_SECTOR_SIZE);
-    if (buf == NULL) {
+    if (buf == NULL)
+    {
         ret = -ENOMEM;
         goto ro_cleanup;
     }
 
-    for (sector = 0; sector < total_sectors; sector += n) {
+    for (sector = 0; sector < total_sectors; sector += n)
+    {
         ret = bdrv_is_allocated(bs, sector, COMMIT_BUF_SECTORS, &n);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto ro_cleanup;
         }
-        if (ret) {
+        if (ret)
+        {
             ret = blk_pread(src, sector * BDRV_SECTOR_SIZE, buf,
                             n * BDRV_SECTOR_SIZE);
-            if (ret < 0) {
+            if (ret < 0)
+            {
                 goto ro_cleanup;
             }
 
             ret = blk_pwrite(backing, sector * BDRV_SECTOR_SIZE, buf,
                              n * BDRV_SECTOR_SIZE, 0);
-            if (ret < 0) {
+            if (ret < 0)
+            {
                 goto ro_cleanup;
             }
         }
     }
 
-    if (drv->bdrv_make_empty) {
+    if (drv->bdrv_make_empty)
+    {
         ret = drv->bdrv_make_empty(bs);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto ro_cleanup;
         }
         blk_flush(src);
@@ -407,7 +450,8 @@ ro_cleanup:
     blk_unref(src);
     blk_unref(backing);
 
-    if (ro) {
+    if (ro)
+    {
         /* ignoring error return here */
         bdrv_reopen(bs->backing->bs, open_flags & ~BDRV_O_RDWR, NULL);
     }

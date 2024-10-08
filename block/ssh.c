@@ -48,18 +48,21 @@
  * to compile it yourself.  The meaning of <bitmask> is described
  * here: http://www.libssh2.org/libssh2_trace.html
  */
-#define DEBUG_SSH     0
+#define DEBUG_SSH 0
 #define TRACE_LIBSSH2 0 /* or try: LIBSSH2_TRACE_SFTP */
 
 #define DPRINTF(fmt, ...)                           \
-    do {                                            \
-        if (DEBUG_SSH) {                            \
+    do                                              \
+    {                                               \
+        if (DEBUG_SSH)                              \
+        {                                           \
             fprintf(stderr, "ssh: %-15s " fmt "\n", \
                     __func__, ##__VA_ARGS__);       \
         }                                           \
     } while (0)
 
-typedef struct BDRVSSHState {
+typedef struct BDRVSSHState
+{
     /* Coroutine. */
     CoMutex lock;
 
@@ -94,25 +97,29 @@ static void ssh_state_init(BDRVSSHState *s)
 
 static void ssh_state_free(BDRVSSHState *s)
 {
-    if (s->sftp_handle) {
+    if (s->sftp_handle)
+    {
         libssh2_sftp_close(s->sftp_handle);
     }
-    if (s->sftp) {
+    if (s->sftp)
+    {
         libssh2_sftp_shutdown(s->sftp);
     }
-    if (s->session) {
+    if (s->session)
+    {
         libssh2_session_disconnect(s->session,
                                    "from qemu ssh client: "
                                    "user closed the connection");
         libssh2_session_free(s->session);
     }
-    if (s->sock >= 0) {
+    if (s->sock >= 0)
+    {
         close(s->sock);
     }
 }
 
 static void GCC_FMT_ATTR(3, 4)
-session_error_setg(Error **errp, BDRVSSHState *s, const char *fs, ...)
+    session_error_setg(Error **errp, BDRVSSHState *s, const char *fs, ...)
 {
     va_list args;
     char *msg;
@@ -121,7 +128,8 @@ session_error_setg(Error **errp, BDRVSSHState *s, const char *fs, ...)
     msg = g_strdup_vprintf(fs, args);
     va_end(args);
 
-    if (s->session) {
+    if (s->session)
+    {
         char *ssh_err;
         int ssh_err_code;
 
@@ -130,14 +138,16 @@ session_error_setg(Error **errp, BDRVSSHState *s, const char *fs, ...)
                                                   &ssh_err, NULL, 0);
         error_setg(errp, "%s: %s (libssh2 error code: %d)",
                    msg, ssh_err, ssh_err_code);
-    } else {
+    }
+    else
+    {
         error_setg(errp, "%s", msg);
     }
     g_free(msg);
 }
 
 static void GCC_FMT_ATTR(3, 4)
-sftp_error_setg(Error **errp, BDRVSSHState *s, const char *fs, ...)
+    sftp_error_setg(Error **errp, BDRVSSHState *s, const char *fs, ...)
 {
     va_list args;
     char *msg;
@@ -146,7 +156,8 @@ sftp_error_setg(Error **errp, BDRVSSHState *s, const char *fs, ...)
     msg = g_strdup_vprintf(fs, args);
     va_end(args);
 
-    if (s->sftp) {
+    if (s->sftp)
+    {
         char *ssh_err;
         int ssh_err_code;
         unsigned long sftp_err_code;
@@ -160,21 +171,24 @@ sftp_error_setg(Error **errp, BDRVSSHState *s, const char *fs, ...)
         error_setg(errp,
                    "%s: %s (libssh2 error code: %d, sftp error code: %lu)",
                    msg, ssh_err, ssh_err_code, sftp_err_code);
-    } else {
+    }
+    else
+    {
         error_setg(errp, "%s", msg);
     }
     g_free(msg);
 }
 
 static void GCC_FMT_ATTR(2, 3)
-sftp_error_report(BDRVSSHState *s, const char *fs, ...)
+    sftp_error_report(BDRVSSHState *s, const char *fs, ...)
 {
     va_list args;
 
     va_start(args, fs);
     error_vprintf(fs, args);
 
-    if ((s)->sftp) {
+    if ((s)->sftp)
+    {
         char *ssh_err;
         int ssh_err_code;
         unsigned long sftp_err_code;
@@ -201,32 +215,38 @@ static int parse_uri(const char *filename, QDict *options, Error **errp)
     int i;
 
     uri = uri_parse(filename);
-    if (!uri) {
+    if (!uri)
+    {
         return -EINVAL;
     }
 
-    if (strcmp(uri->scheme, "ssh") != 0) {
+    if (strcmp(uri->scheme, "ssh") != 0)
+    {
         error_setg(errp, "URI scheme must be 'ssh'");
         goto err;
     }
 
-    if (!uri->server || strcmp(uri->server, "") == 0) {
+    if (!uri->server || strcmp(uri->server, "") == 0)
+    {
         error_setg(errp, "missing hostname in URI");
         goto err;
     }
 
-    if (!uri->path || strcmp(uri->path, "") == 0) {
+    if (!uri->path || strcmp(uri->path, "") == 0)
+    {
         error_setg(errp, "missing remote path in URI");
         goto err;
     }
 
     qp = query_params_parse(uri->query);
-    if (!qp) {
+    if (!qp)
+    {
         error_setg(errp, "could not parse query parameters");
         goto err;
     }
 
-    if(uri->user && strcmp(uri->user, "") != 0) {
+    if (uri->user && strcmp(uri->user, "") != 0)
+    {
         qdict_put(options, "user", qstring_from_str(uri->user));
     }
 
@@ -241,8 +261,10 @@ static int parse_uri(const char *filename, QDict *options, Error **errp)
     /* Pick out any query parameters that we understand, and ignore
      * the rest.
      */
-    for (i = 0; i < qp->n; ++i) {
-        if (strcmp(qp->p[i].name, "host_key_check") == 0) {
+    for (i = 0; i < qp->n; ++i)
+    {
+        if (strcmp(qp->p[i].name, "host_key_check") == 0)
+        {
             qdict_put(options, "host_key_check",
                       qstring_from_str(qp->p[i].value));
         }
@@ -252,9 +274,10 @@ static int parse_uri(const char *filename, QDict *options, Error **errp)
     uri_free(uri);
     return 0;
 
- err:
-    if (uri) {
-      uri_free(uri);
+err:
+    if (uri)
+    {
+        uri_free(uri);
     }
     return -EINVAL;
 }
@@ -263,7 +286,8 @@ static bool ssh_has_filename_options_conflict(QDict *options, Error **errp)
 {
     const QDictEntry *qe;
 
-    for (qe = qdict_first(options); qe; qe = qdict_next(options, qe)) {
+    for (qe = qdict_first(options); qe; qe = qdict_next(options, qe))
+    {
         if (!strcmp(qe->key, "host") ||
             !strcmp(qe->key, "port") ||
             !strcmp(qe->key, "path") ||
@@ -283,7 +307,8 @@ static bool ssh_has_filename_options_conflict(QDict *options, Error **errp)
 static void ssh_parse_filename(const char *filename, QDict *options,
                                Error **errp)
 {
-    if (ssh_has_filename_options_conflict(options, errp)) {
+    if (ssh_has_filename_options_conflict(options, errp))
+    {
         return;
     }
 
@@ -303,14 +328,16 @@ static int check_host_key_knownhosts(BDRVSSHState *s,
     int type;
 
     hostkey = libssh2_session_hostkey(s->session, &len, &type);
-    if (!hostkey) {
+    if (!hostkey)
+    {
         ret = -EINVAL;
         session_error_setg(errp, s, "failed to read remote host key");
         goto out;
     }
 
     knh = libssh2_knownhost_init(s->session);
-    if (!knh) {
+    if (!knh)
+    {
         ret = -EINVAL;
         session_error_setg(errp, s,
                            "failed to initialize known hosts support");
@@ -318,9 +345,12 @@ static int check_host_key_knownhosts(BDRVSSHState *s,
     }
 
     home = getenv("HOME");
-    if (home) {
+    if (home)
+    {
         knh_file = g_strdup_printf("%s/.ssh/known_hosts", home);
-    } else {
+    }
+    else
+    {
         knh_file = g_strdup_printf("/root/.ssh/known_hosts");
     }
 
@@ -328,10 +358,11 @@ static int check_host_key_knownhosts(BDRVSSHState *s,
     libssh2_knownhost_readfile(knh, knh_file, LIBSSH2_KNOWNHOST_FILE_OPENSSH);
 
     r = libssh2_knownhost_checkp(knh, host, port, hostkey, len,
-                                 LIBSSH2_KNOWNHOST_TYPE_PLAIN|
-                                 LIBSSH2_KNOWNHOST_KEYENC_RAW,
+                                 LIBSSH2_KNOWNHOST_TYPE_PLAIN |
+                                     LIBSSH2_KNOWNHOST_KEYENC_RAW,
                                  &found);
-    switch (r) {
+    switch (r)
+    {
     case LIBSSH2_KNOWNHOST_CHECK_MATCH:
         /* OK */
         DPRINTF("host key OK: %s", found->key);
@@ -339,8 +370,9 @@ static int check_host_key_knownhosts(BDRVSSHState *s,
     case LIBSSH2_KNOWNHOST_CHECK_MISMATCH:
         ret = -EINVAL;
         session_error_setg(errp, s,
-                      "host key does not match the one in known_hosts"
-                      " (found key %s)", found->key);
+                           "host key does not match the one in known_hosts"
+                           " (found key %s)",
+                           found->key);
         goto out;
     case LIBSSH2_KNOWNHOST_CHECK_NOTFOUND:
         ret = -EINVAL;
@@ -349,20 +381,22 @@ static int check_host_key_knownhosts(BDRVSSHState *s,
     case LIBSSH2_KNOWNHOST_CHECK_FAILURE:
         ret = -EINVAL;
         session_error_setg(errp, s,
-                      "failure matching the host key with known_hosts");
+                           "failure matching the host key with known_hosts");
         goto out;
     default:
         ret = -EINVAL;
         session_error_setg(errp, s, "unknown error matching the host key"
-                      " with known_hosts (%d)", r);
+                                    " with known_hosts (%d)",
+                           r);
         goto out;
     }
 
     /* known_hosts checking successful. */
     ret = 0;
 
- out:
-    if (knh != NULL) {
+out:
+    if (knh != NULL)
+    {
         libssh2_knownhost_free(knh);
     }
     g_free(knh_file);
@@ -371,11 +405,16 @@ static int check_host_key_knownhosts(BDRVSSHState *s,
 
 static unsigned hex2decimal(char ch)
 {
-    if (ch >= '0' && ch <= '9') {
+    if (ch >= '0' && ch <= '9')
+    {
         return (ch - '0');
-    } else if (ch >= 'a' && ch <= 'f') {
+    }
+    else if (ch >= 'a' && ch <= 'f')
+    {
         return 10 + (ch - 'a');
-    } else if (ch >= 'A' && ch <= 'F') {
+    }
+    else if (ch >= 'A' && ch <= 'F')
+    {
         return 10 + (ch - 'A');
     }
 
@@ -390,7 +429,8 @@ static int compare_fingerprint(const unsigned char *fingerprint, size_t len,
 {
     unsigned c;
 
-    while (len > 0) {
+    while (len > 0)
+    {
         while (*host_key_check == ':')
             host_key_check++;
         if (!qemu_isxdigit(host_key_check[0]) ||
@@ -414,13 +454,15 @@ check_host_key_hash(BDRVSSHState *s, const char *hash,
     const char *fingerprint;
 
     fingerprint = libssh2_hostkey_hash(s->session, hash_type);
-    if (!fingerprint) {
+    if (!fingerprint)
+    {
         session_error_setg(errp, s, "failed to read remote host key");
         return -EINVAL;
     }
 
-    if(compare_fingerprint((unsigned char *) fingerprint, fingerprint_len,
-                           hash) != 0) {
+    if (compare_fingerprint((unsigned char *)fingerprint, fingerprint_len,
+                            hash) != 0)
+    {
         error_setg(errp, "remote host key does not match host_key_check '%s'",
                    hash);
         return -EPERM;
@@ -433,24 +475,28 @@ static int check_host_key(BDRVSSHState *s, const char *host, int port,
                           const char *host_key_check, Error **errp)
 {
     /* host_key_check=no */
-    if (strcmp(host_key_check, "no") == 0) {
+    if (strcmp(host_key_check, "no") == 0)
+    {
         return 0;
     }
 
     /* host_key_check=md5:xx:yy:zz:... */
-    if (strncmp(host_key_check, "md5:", 4) == 0) {
+    if (strncmp(host_key_check, "md5:", 4) == 0)
+    {
         return check_host_key_hash(s, &host_key_check[4],
                                    LIBSSH2_HOSTKEY_HASH_MD5, 16, errp);
     }
 
     /* host_key_check=sha1:xx:yy:zz:... */
-    if (strncmp(host_key_check, "sha1:", 5) == 0) {
+    if (strncmp(host_key_check, "sha1:", 5) == 0)
+    {
         return check_host_key_hash(s, &host_key_check[5],
                                    LIBSSH2_HOSTKEY_HASH_SHA1, 20, errp);
     }
 
     /* host_key_check=yes */
-    if (strcmp(host_key_check, "yes") == 0) {
+    if (strcmp(host_key_check, "yes") == 0)
+    {
         return check_host_key_knownhosts(s, host, port, errp);
     }
 
@@ -467,45 +513,53 @@ static int authenticate(BDRVSSHState *s, const char *user, Error **errp)
     struct libssh2_agent_publickey *prev_identity = NULL;
 
     userauthlist = libssh2_userauth_list(s->session, user, strlen(user));
-    if (strstr(userauthlist, "publickey") == NULL) {
+    if (strstr(userauthlist, "publickey") == NULL)
+    {
         ret = -EPERM;
         error_setg(errp,
-                "remote server does not support \"publickey\" authentication");
+                   "remote server does not support \"publickey\" authentication");
         goto out;
     }
 
     /* Connect to ssh-agent and try each identity in turn. */
     agent = libssh2_agent_init(s->session);
-    if (!agent) {
+    if (!agent)
+    {
         ret = -EINVAL;
         session_error_setg(errp, s, "failed to initialize ssh-agent support");
         goto out;
     }
-    if (libssh2_agent_connect(agent)) {
+    if (libssh2_agent_connect(agent))
+    {
         ret = -ECONNREFUSED;
         session_error_setg(errp, s, "failed to connect to ssh-agent");
         goto out;
     }
-    if (libssh2_agent_list_identities(agent)) {
+    if (libssh2_agent_list_identities(agent))
+    {
         ret = -EINVAL;
         session_error_setg(errp, s,
                            "failed requesting identities from ssh-agent");
         goto out;
     }
 
-    for(;;) {
+    for (;;)
+    {
         r = libssh2_agent_get_identity(agent, &identity, prev_identity);
-        if (r == 1) {           /* end of list */
+        if (r == 1)
+        { /* end of list */
             break;
         }
-        if (r < 0) {
+        if (r < 0)
+        {
             ret = -EINVAL;
             session_error_setg(errp, s,
                                "failed to obtain identity from ssh-agent");
             goto out;
         }
         r = libssh2_agent_userauth(agent, user, identity);
-        if (r == 0) {
+        if (r == 0)
+        {
             /* Authenticated! */
             ret = 0;
             goto out;
@@ -516,10 +570,11 @@ static int authenticate(BDRVSSHState *s, const char *user, Error **errp)
 
     ret = -EPERM;
     error_setg(errp, "failed to authenticate using publickey authentication "
-               "and the identities held by your ssh-agent");
+                     "and the identities held by your ssh-agent");
 
- out:
-    if (agent != NULL) {
+out:
+    if (agent != NULL)
+    {
         /* Note: libssh2 implementation implicitly calls
          * libssh2_agent_disconnect if necessary.
          */
@@ -568,12 +623,14 @@ static bool ssh_process_legacy_socket_options(QDict *output_opts,
     const char *host = qemu_opt_get(legacy_opts, "host");
     const char *port = qemu_opt_get(legacy_opts, "port");
 
-    if (!host && port) {
+    if (!host && port)
+    {
         error_setg(errp, "port may not be used without host");
         return false;
     }
 
-    if (host) {
+    if (host)
+    {
         qdict_put(output_opts, "server.host", qstring_from_str(host));
         qdict_put(output_opts, "server.port",
                   qstring_from_str(port ?: stringify(22)));
@@ -591,19 +648,22 @@ static InetSocketAddress *ssh_config(QDict *options, Error **errp)
     Error *local_error = NULL;
 
     qdict_extract_subqdict(options, &addr, "server.");
-    if (!qdict_size(addr)) {
+    if (!qdict_size(addr))
+    {
         error_setg(errp, "SSH server address missing");
         goto out;
     }
 
     crumpled_addr = qdict_crumple(addr, errp);
-    if (!crumpled_addr) {
+    if (!crumpled_addr)
+    {
         goto out;
     }
 
     iv = qobject_input_visitor_new(crumpled_addr, true);
     visit_type_InetSocketAddress(iv, NULL, &inet, &local_error);
-    if (local_error) {
+    if (local_error)
+    {
         error_propagate(errp, local_error);
         goto out;
     }
@@ -626,28 +686,33 @@ static int connect_to_ssh(BDRVSSHState *s, QDict *options,
 
     opts = qemu_opts_create(&ssh_runtime_opts, NULL, 0, &error_abort);
     qemu_opts_absorb_qdict(opts, options, &local_err);
-    if (local_err) {
+    if (local_err)
+    {
         ret = -EINVAL;
         error_propagate(errp, local_err);
         goto err;
     }
 
-    if (!ssh_process_legacy_socket_options(options, opts, errp)) {
+    if (!ssh_process_legacy_socket_options(options, opts, errp))
+    {
         ret = -EINVAL;
         goto err;
     }
 
     path = qemu_opt_get(opts, "path");
-    if (!path) {
+    if (!path)
+    {
         ret = -EINVAL;
         error_setg(errp, "No path was specified");
         goto err;
     }
 
     user = qemu_opt_get(opts, "user");
-    if (!user) {
+    if (!user)
+    {
         user = g_get_user_name();
-        if (!user) {
+        if (!user)
+        {
             error_setg_errno(errp, errno, "Can't get user name");
             ret = -errno;
             goto err;
@@ -655,18 +720,21 @@ static int connect_to_ssh(BDRVSSHState *s, QDict *options,
     }
 
     host_key_check = qemu_opt_get(opts, "host_key_check");
-    if (!host_key_check) {
+    if (!host_key_check)
+    {
         host_key_check = "yes";
     }
 
     /* Pop the config into our state object, Exit if invalid */
     s->inet = ssh_config(options, errp);
-    if (!s->inet) {
+    if (!s->inet)
+    {
         ret = -EINVAL;
         goto err;
     }
 
-    if (qemu_strtol(s->inet->port, NULL, 10, &port) < 0) {
+    if (qemu_strtol(s->inet->port, NULL, 10, &port) < 0)
+    {
         error_setg(errp, "Use only numeric port value");
         ret = -EINVAL;
         goto err;
@@ -674,14 +742,16 @@ static int connect_to_ssh(BDRVSSHState *s, QDict *options,
 
     /* Open the socket and connect. */
     s->sock = inet_connect_saddr(s->inet, errp, NULL, NULL);
-    if (s->sock < 0) {
+    if (s->sock < 0)
+    {
         ret = -EIO;
         goto err;
     }
 
     /* Create SSH session. */
     s->session = libssh2_session_init();
-    if (!s->session) {
+    if (!s->session)
+    {
         ret = -EINVAL;
         session_error_setg(errp, s, "failed to initialize libssh2 session");
         goto err;
@@ -692,7 +762,8 @@ static int connect_to_ssh(BDRVSSHState *s, QDict *options,
 #endif
 
     r = libssh2_session_handshake(s->session, s->sock);
-    if (r != 0) {
+    if (r != 0)
+    {
         ret = -EINVAL;
         session_error_setg(errp, s, "failed to establish SSH session");
         goto err;
@@ -701,19 +772,22 @@ static int connect_to_ssh(BDRVSSHState *s, QDict *options,
     /* Check the remote host's key against known_hosts. */
     ret = check_host_key(s, s->inet->host, port, host_key_check,
                          errp);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto err;
     }
 
     /* Authenticate. */
     ret = authenticate(s, user, errp);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto err;
     }
 
     /* Start SFTP. */
     s->sftp = libssh2_sftp_init(s->session);
-    if (!s->sftp) {
+    if (!s->sftp)
+    {
         session_error_setg(errp, s, "failed to initialize sftp handle");
         ret = -EINVAL;
         goto err;
@@ -723,7 +797,8 @@ static int connect_to_ssh(BDRVSSHState *s, QDict *options,
     DPRINTF("opening file %s flags=0x%x creat_mode=0%o",
             path, ssh_flags, creat_mode);
     s->sftp_handle = libssh2_sftp_open(s->sftp, path, ssh_flags, creat_mode);
-    if (!s->sftp_handle) {
+    if (!s->sftp_handle)
+    {
         session_error_setg(errp, s, "failed to open remote file '%s'", path);
         ret = -EINVAL;
         goto err;
@@ -732,23 +807,27 @@ static int connect_to_ssh(BDRVSSHState *s, QDict *options,
     qemu_opts_del(opts);
 
     r = libssh2_sftp_fstat(s->sftp_handle, &s->attrs);
-    if (r < 0) {
+    if (r < 0)
+    {
         sftp_error_setg(errp, s, "failed to read file attributes");
         return -EINVAL;
     }
 
     return 0;
 
- err:
-    if (s->sftp_handle) {
+err:
+    if (s->sftp_handle)
+    {
         libssh2_sftp_close(s->sftp_handle);
     }
     s->sftp_handle = NULL;
-    if (s->sftp) {
+    if (s->sftp)
+    {
         libssh2_sftp_shutdown(s->sftp);
     }
     s->sftp = NULL;
-    if (s->session) {
+    if (s->session)
+    {
         libssh2_session_disconnect(s->session,
                                    "from qemu ssh client: "
                                    "error opening connection");
@@ -771,13 +850,15 @@ static int ssh_file_open(BlockDriverState *bs, QDict *options, int bdrv_flags,
     ssh_state_init(s);
 
     ssh_flags = LIBSSH2_FXF_READ;
-    if (bdrv_flags & BDRV_O_RDWR) {
+    if (bdrv_flags & BDRV_O_RDWR)
+    {
         ssh_flags |= LIBSSH2_FXF_WRITE;
     }
 
     /* Start up SSH. */
     ret = connect_to_ssh(s, options, ssh_flags, 0, errp);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto err;
     }
 
@@ -786,8 +867,9 @@ static int ssh_file_open(BlockDriverState *bs, QDict *options, int bdrv_flags,
 
     return 0;
 
- err:
-    if (s->sock >= 0) {
+err:
+    if (s->sock >= 0)
+    {
         close(s->sock);
     }
     s->sock = -1;
@@ -799,14 +881,10 @@ static QemuOptsList ssh_create_opts = {
     .name = "ssh-create-opts",
     .head = QTAILQ_HEAD_INITIALIZER(ssh_create_opts.head),
     .desc = {
-        {
-            .name = BLOCK_OPT_SIZE,
-            .type = QEMU_OPT_SIZE,
-            .help = "Virtual disk size"
-        },
-        { /* end of list */ }
-    }
-};
+        {.name = BLOCK_OPT_SIZE,
+         .type = QEMU_OPT_SIZE,
+         .help = "Virtual disk size"},
+        {/* end of list */}}};
 
 static int ssh_create(const char *filename, QemuOpts *opts, Error **errp)
 {
@@ -815,7 +893,7 @@ static int ssh_create(const char *filename, QemuOpts *opts, Error **errp)
     QDict *uri_options = NULL;
     BDRVSSHState s;
     ssize_t r2;
-    char c[1] = { '\0' };
+    char c[1] = {'\0'};
 
     ssh_state_init(&s);
 
@@ -826,24 +904,28 @@ static int ssh_create(const char *filename, QemuOpts *opts, Error **errp)
 
     uri_options = qdict_new();
     r = parse_uri(filename, uri_options, errp);
-    if (r < 0) {
+    if (r < 0)
+    {
         ret = r;
         goto out;
     }
 
     r = connect_to_ssh(&s, uri_options,
-                       LIBSSH2_FXF_READ|LIBSSH2_FXF_WRITE|
-                       LIBSSH2_FXF_CREAT|LIBSSH2_FXF_TRUNC,
+                       LIBSSH2_FXF_READ | LIBSSH2_FXF_WRITE |
+                           LIBSSH2_FXF_CREAT | LIBSSH2_FXF_TRUNC,
                        0644, errp);
-    if (r < 0) {
+    if (r < 0)
+    {
         ret = r;
         goto out;
     }
 
-    if (total_size > 0) {
-        libssh2_sftp_seek64(s.sftp_handle, total_size-1);
+    if (total_size > 0)
+    {
+        libssh2_sftp_seek64(s.sftp_handle, total_size - 1);
         r2 = libssh2_sftp_write(s.sftp_handle, c, 1);
-        if (r2 < 0) {
+        if (r2 < 0)
+        {
             sftp_error_setg(errp, &s, "truncate failed");
             ret = -EINVAL;
             goto out;
@@ -853,9 +935,10 @@ static int ssh_create(const char *filename, QemuOpts *opts, Error **errp)
 
     ret = 0;
 
- out:
+out:
     ssh_state_free(&s);
-    if (uri_options != NULL) {
+    if (uri_options != NULL)
+    {
         QDECREF(uri_options);
     }
     return ret;
@@ -874,8 +957,10 @@ static int ssh_has_zero_init(BlockDriverState *bs)
     /* Assume false, unless we can positively prove it's true. */
     int has_zero_init = 0;
 
-    if (s->attrs.flags & LIBSSH2_SFTP_ATTR_PERMISSIONS) {
-        if (s->attrs.permissions & LIBSSH2_SFTP_S_IFREG) {
+    if (s->attrs.flags & LIBSSH2_SFTP_ATTR_PERMISSIONS)
+    {
+        if (s->attrs.permissions & LIBSSH2_SFTP_S_IFREG)
+        {
             has_zero_init = 1;
         }
     }
@@ -900,10 +985,12 @@ static coroutine_fn void set_fd_handler(BDRVSSHState *s, BlockDriverState *bs)
 
     r = libssh2_session_block_directions(s->session);
 
-    if (r & LIBSSH2_SESSION_BLOCK_INBOUND) {
+    if (r & LIBSSH2_SESSION_BLOCK_INBOUND)
+    {
         rd_handler = restart_coroutine;
     }
-    if (r & LIBSSH2_SESSION_BLOCK_OUTBOUND) {
+    if (r & LIBSSH2_SESSION_BLOCK_OUTBOUND)
+    {
         wr_handler = restart_coroutine;
     }
 
@@ -926,7 +1013,7 @@ static coroutine_fn void clear_fd_handler(BDRVSSHState *s,
  * handlers are set up so that we'll be rescheduled when there is an
  * interesting event on the socket.
  */
-static coroutine_fn void co_yield(BDRVSSHState *s, BlockDriverState *bs)
+static coroutine_fn void co_yield (BDRVSSHState *s, BlockDriverState *bs)
 {
     set_fd_handler(s, bs);
     qemu_coroutine_yield();
@@ -944,7 +1031,7 @@ static coroutine_fn void co_yield(BDRVSSHState *s, BlockDriverState *bs)
  * to be intelligent about when to call the underlying libssh2 function.
  */
 #define SSH_SEEK_WRITE 0
-#define SSH_SEEK_READ  1
+#define SSH_SEEK_READ 1
 #define SSH_SEEK_FORCE 2
 
 static void ssh_seek(BDRVSSHState *s, int64_t offset, int flags)
@@ -952,7 +1039,8 @@ static void ssh_seek(BDRVSSHState *s, int64_t offset, int flags)
     bool op_read = (flags & SSH_SEEK_READ) != 0;
     bool force = (flags & SSH_SEEK_FORCE) != 0;
 
-    if (force || op_read != s->offset_op_read || offset != s->offset) {
+    if (force || op_read != s->offset_op_read || offset != s->offset)
+    {
         DPRINTF("seeking to offset=%" PRIi64, offset);
         libssh2_sftp_seek64(s->sftp_handle, offset);
         s->offset = offset;
@@ -986,22 +1074,26 @@ static coroutine_fn int ssh_read(BDRVSSHState *s, BlockDriverState *bs,
      * we may have to do repeated reads here until we have read 'size'
      * bytes.
      */
-    for (got = 0; got < size; ) {
+    for (got = 0; got < size;)
+    {
     again:
         DPRINTF("sftp_read buf=%p size=%zu", buf, end_of_vec - buf);
         r = libssh2_sftp_read(s->sftp_handle, buf, end_of_vec - buf);
         DPRINTF("sftp_read returned %zd", r);
 
-        if (r == LIBSSH2_ERROR_EAGAIN || r == LIBSSH2_ERROR_TIMEOUT) {
-            co_yield(s, bs);
+        if (r == LIBSSH2_ERROR_EAGAIN || r == LIBSSH2_ERROR_TIMEOUT)
+        {
+            co_yield (s, bs);
             goto again;
         }
-        if (r < 0) {
+        if (r < 0)
+        {
             sftp_error_report(s, "read failed");
             s->offset = -1;
             return -EIO;
         }
-        if (r == 0) {
+        if (r == 0)
+        {
             /* EOF: Short read so pad the buffer with zeroes and return it. */
             qemu_iovec_memset(qiov, got, 0, size - got);
             return 0;
@@ -1010,7 +1102,8 @@ static coroutine_fn int ssh_read(BDRVSSHState *s, BlockDriverState *bs,
         got += r;
         buf += r;
         s->offset += r;
-        if (buf >= end_of_vec && got < size) {
+        if (buf >= end_of_vec && got < size)
+        {
             i++;
             buf = i->iov_base;
             end_of_vec = i->iov_base + i->iov_len;
@@ -1056,17 +1149,20 @@ static int ssh_write(BDRVSSHState *s, BlockDriverState *bs,
     buf = i->iov_base;
     end_of_vec = i->iov_base + i->iov_len;
 
-    for (written = 0; written < size; ) {
+    for (written = 0; written < size;)
+    {
     again:
         DPRINTF("sftp_write buf=%p size=%zu", buf, end_of_vec - buf);
         r = libssh2_sftp_write(s->sftp_handle, buf, end_of_vec - buf);
         DPRINTF("sftp_write returned %zd", r);
 
-        if (r == LIBSSH2_ERROR_EAGAIN || r == LIBSSH2_ERROR_TIMEOUT) {
-            co_yield(s, bs);
+        if (r == LIBSSH2_ERROR_EAGAIN || r == LIBSSH2_ERROR_TIMEOUT)
+        {
+            co_yield (s, bs);
             goto again;
         }
-        if (r < 0) {
+        if (r < 0)
+        {
             sftp_error_report(s, "write failed");
             s->offset = -1;
             return -EIO;
@@ -1080,16 +1176,18 @@ static int ssh_write(BDRVSSHState *s, BlockDriverState *bs,
          * discard libssh2 internal buffers), and then trying again
          * works for me.
          */
-        if (r == 0) {
-            ssh_seek(s, offset + written, SSH_SEEK_WRITE|SSH_SEEK_FORCE);
-            co_yield(s, bs);
+        if (r == 0)
+        {
+            ssh_seek(s, offset + written, SSH_SEEK_WRITE | SSH_SEEK_FORCE);
+            co_yield (s, bs);
             goto again;
         }
 
         written += r;
         buf += r;
         s->offset += r;
-        if (buf >= end_of_vec && written < size) {
+        if (buf >= end_of_vec && written < size)
+        {
             i++;
             buf = i->iov_base;
             end_of_vec = i->iov_base + i->iov_len;
@@ -1119,10 +1217,12 @@ static coroutine_fn int ssh_co_writev(BlockDriverState *bs,
 
 static void unsafe_flush_warning(BDRVSSHState *s, const char *what)
 {
-    if (!s->unsafe_flush_warning) {
+    if (!s->unsafe_flush_warning)
+    {
         error_report("warning: ssh server %s does not support fsync",
                      s->inet->host);
-        if (what) {
+        if (what)
+        {
             error_report("to support fsync, you need %s", what);
         }
         s->unsafe_flush_warning = true;
@@ -1136,18 +1236,21 @@ static coroutine_fn int ssh_flush(BDRVSSHState *s, BlockDriverState *bs)
     int r;
 
     DPRINTF("fsync");
- again:
+again:
     r = libssh2_sftp_fsync(s->sftp_handle);
-    if (r == LIBSSH2_ERROR_EAGAIN || r == LIBSSH2_ERROR_TIMEOUT) {
-        co_yield(s, bs);
+    if (r == LIBSSH2_ERROR_EAGAIN || r == LIBSSH2_ERROR_TIMEOUT)
+    {
+        co_yield (s, bs);
         goto again;
     }
     if (r == LIBSSH2_ERROR_SFTP_PROTOCOL &&
-        libssh2_sftp_last_error(s->sftp) == LIBSSH2_FX_OP_UNSUPPORTED) {
+        libssh2_sftp_last_error(s->sftp) == LIBSSH2_FX_OP_UNSUPPORTED)
+    {
         unsafe_flush_warning(s, "OpenSSH >= 6.3");
         return 0;
     }
-    if (r < 0) {
+    if (r < 0)
+    {
         sftp_error_report(s, "fsync failed");
         return -EIO;
     }
@@ -1185,26 +1288,26 @@ static int64_t ssh_getlength(BlockDriverState *bs)
     int64_t length;
 
     /* Note we cannot make a libssh2 call here. */
-    length = (int64_t) s->attrs.filesize;
+    length = (int64_t)s->attrs.filesize;
     DPRINTF("length=%" PRIi64, length);
 
     return length;
 }
 
 static BlockDriver bdrv_ssh = {
-    .format_name                  = "ssh",
-    .protocol_name                = "ssh",
-    .instance_size                = sizeof(BDRVSSHState),
-    .bdrv_parse_filename          = ssh_parse_filename,
-    .bdrv_file_open               = ssh_file_open,
-    .bdrv_create                  = ssh_create,
-    .bdrv_close                   = ssh_close,
-    .bdrv_has_zero_init           = ssh_has_zero_init,
-    .bdrv_co_readv                = ssh_co_readv,
-    .bdrv_co_writev               = ssh_co_writev,
-    .bdrv_getlength               = ssh_getlength,
-    .bdrv_co_flush_to_disk        = ssh_co_flush,
-    .create_opts                  = &ssh_create_opts,
+    .format_name = "ssh",
+    .protocol_name = "ssh",
+    .instance_size = sizeof(BDRVSSHState),
+    .bdrv_parse_filename = ssh_parse_filename,
+    .bdrv_file_open = ssh_file_open,
+    .bdrv_create = ssh_create,
+    .bdrv_close = ssh_close,
+    .bdrv_has_zero_init = ssh_has_zero_init,
+    .bdrv_co_readv = ssh_co_readv,
+    .bdrv_co_writev = ssh_co_writev,
+    .bdrv_getlength = ssh_getlength,
+    .bdrv_co_flush_to_disk = ssh_co_flush,
+    .create_opts = &ssh_create_opts,
 };
 
 static void bdrv_ssh_init(void)
@@ -1212,7 +1315,8 @@ static void bdrv_ssh_init(void)
     int r;
 
     r = libssh2_init(0);
-    if (r != 0) {
+    if (r != 0)
+    {
         fprintf(stderr, "libssh2 initialization failed, %d\n", r);
         exit(EXIT_FAILURE);
     }

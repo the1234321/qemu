@@ -33,7 +33,8 @@
 int (*dmg_uncompress_bz2)(char *next_in, unsigned int avail_in,
                           char *next_out, unsigned int avail_out);
 
-enum {
+enum
+{
     /* Limit chunk sizes to prevent unreasonable amounts of memory being used
      * or truncating when converting to 32-bit types
      */
@@ -45,12 +46,14 @@ static int dmg_probe(const uint8_t *buf, int buf_size, const char *filename)
 {
     int len;
 
-    if (!filename) {
+    if (!filename)
+    {
         return 0;
     }
 
     len = strlen(filename);
-    if (len > 4 && !strcmp(filename + len - 4, ".dmg")) {
+    if (len > 4 && !strcmp(filename + len - 4, ".dmg"))
+    {
         return 2;
     }
     return 0;
@@ -62,7 +65,8 @@ static int read_uint64(BlockDriverState *bs, int64_t offset, uint64_t *result)
     int ret;
 
     ret = bdrv_pread(bs->file, offset, &buffer, 8);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         return ret;
     }
 
@@ -76,7 +80,8 @@ static int read_uint32(BlockDriverState *bs, int64_t offset, uint32_t *result)
     int ret;
 
     ret = bdrv_pread(bs->file, offset, &buffer, 4);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         return ret;
     }
 
@@ -104,7 +109,8 @@ static void update_max_chunk_size(BDRVDMGState *s, uint32_t chunk,
     uint32_t compressed_size = 0;
     uint32_t uncompressed_sectors = 0;
 
-    switch (s->types[chunk]) {
+    switch (s->types[chunk])
+    {
     case 0x80000005: /* zlib compressed */
     case 0x80000006: /* bzip2 compressed */
         compressed_size = s->lengths[chunk];
@@ -120,10 +126,12 @@ static void update_max_chunk_size(BDRVDMGState *s, uint32_t chunk,
         break;
     }
 
-    if (compressed_size > *max_compressed_size) {
+    if (compressed_size > *max_compressed_size)
+    {
         *max_compressed_size = compressed_size;
     }
-    if (uncompressed_sectors > *max_sectors_per_chunk) {
+    if (uncompressed_sectors > *max_sectors_per_chunk)
+    {
         *max_sectors_per_chunk = uncompressed_sectors;
     }
 }
@@ -142,26 +150,33 @@ static int64_t dmg_find_koly_offset(BdrvChild *file, Error **errp)
      * in the last 511 bytes of the second-last sector or the first 4 bytes of
      * the last sector (search space: 515 bytes) */
     length = bdrv_getlength(file_bs);
-    if (length < 0) {
+    if (length < 0)
+    {
         error_setg_errno(errp, -length,
-            "Failed to get file size while reading UDIF trailer");
+                         "Failed to get file size while reading UDIF trailer");
         return length;
-    } else if (length < 512) {
+    }
+    else if (length < 512)
+    {
         error_setg(errp, "dmg file must be at least 512 bytes long");
         return -EINVAL;
     }
-    if (length > 511 + 512) {
+    if (length > 511 + 512)
+    {
         offset = length - 511 - 512;
     }
     length = length < 515 ? length : 515;
     ret = bdrv_pread(file, offset, buffer, length);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         error_setg_errno(errp, -ret, "Failed while reading UDIF trailer");
         return ret;
     }
-    for (i = 0; i < length - 3; i++) {
-        if (buffer[i] == 'k' && buffer[i+1] == 'o' &&
-            buffer[i+2] == 'l' && buffer[i+3] == 'y') {
+    for (i = 0; i < length - 3; i++)
+    {
+        if (buffer[i] == 'k' && buffer[i + 1] == 'o' &&
+            buffer[i + 2] == 'l' && buffer[i + 3] == 'y')
+        {
             return offset + i;
         }
     }
@@ -170,7 +185,8 @@ static int64_t dmg_find_koly_offset(BdrvChild *file, Error **errp)
 }
 
 /* used when building the sector table */
-typedef struct DmgHeaderState {
+typedef struct DmgHeaderState
+{
     /* used internally by dmg_read_mish_block to remember offsets of blocks
      * across calls */
     uint64_t data_fork_offset;
@@ -181,12 +197,13 @@ typedef struct DmgHeaderState {
 
 static bool dmg_is_known_block_type(uint32_t entry_type)
 {
-    switch (entry_type) {
-    case 0x00000001:    /* uncompressed */
-    case 0x00000002:    /* zeroes */
-    case 0x80000005:    /* zlib */
+    switch (entry_type)
+    {
+    case 0x00000001: /* uncompressed */
+    case 0x00000002: /* zeroes */
+    case 0x80000005: /* zlib */
         return true;
-    case 0x80000006:    /* bzip2 */
+    case 0x80000006: /* bzip2 */
         return !!dmg_uncompress_bz2;
     default:
         return false;
@@ -207,7 +224,8 @@ static int dmg_read_mish_block(BDRVDMGState *s, DmgHeaderState *ds,
 
     type = buff_read_uint32(buffer, offset);
     /* skip data that is not a valid MISH block (invalid magic or too small) */
-    if (type != 0x6d697368 || count < 244) {
+    if (type != 0x6d697368 || count < 244)
+    {
         /* assume success for now */
         return 0;
     }
@@ -230,9 +248,11 @@ static int dmg_read_mish_block(BDRVDMGState *s, DmgHeaderState *ds,
     s->sectors = g_realloc(s->sectors, new_size);
     s->sectorcounts = g_realloc(s->sectorcounts, new_size);
 
-    for (i = s->n_chunks; i < s->n_chunks + chunk_count; i++) {
+    for (i = s->n_chunks; i < s->n_chunks + chunk_count; i++)
+    {
         s->types[i] = buff_read_uint32(buffer, offset);
-        if (!dmg_is_known_block_type(s->types[i])) {
+        if (!dmg_is_known_block_type(s->types[i]))
+        {
             chunk_count--;
             i--;
             offset += 40;
@@ -248,7 +268,8 @@ static int dmg_read_mish_block(BDRVDMGState *s, DmgHeaderState *ds,
 
         /* all-zeroes sector (type 2) does not need to be "uncompressed" and can
          * therefore be unbounded. */
-        if (s->types[i] != 2 && s->sectorcounts[i] > DMG_SECTORCOUNTS_MAX) {
+        if (s->types[i] != 2 && s->sectorcounts[i] > DMG_SECTORCOUNTS_MAX)
+        {
             error_report("sector count %" PRIu64 " for chunk %" PRIu32
                          " is larger than max (%u)",
                          s->sectorcounts[i], i, DMG_SECTORCOUNTS_MAX);
@@ -263,7 +284,8 @@ static int dmg_read_mish_block(BDRVDMGState *s, DmgHeaderState *ds,
         /* length in (compressed) data fork */
         s->lengths[i] = buff_read_uint64(buffer, offset + 0x20);
 
-        if (s->lengths[i] > DMG_LENGTHS_MAX) {
+        if (s->lengths[i] > DMG_LENGTHS_MAX)
+        {
             error_report("length %" PRIu64 " for chunk %" PRIu32
                          " is larger than max (%u)",
                          s->lengths[i], i, DMG_LENGTHS_MAX);
@@ -294,18 +316,24 @@ static int dmg_read_resource_fork(BlockDriverState *bs, DmgHeaderState *ds,
 
     /* read offset from begin of resource fork (info_begin) to resource data */
     ret = read_uint32(bs, info_begin, &rsrc_data_offset);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto fail;
-    } else if (rsrc_data_offset > info_length) {
+    }
+    else if (rsrc_data_offset > info_length)
+    {
         ret = -EINVAL;
         goto fail;
     }
 
     /* read length of resource data */
     ret = read_uint32(bs, info_begin + 8, &count);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto fail;
-    } else if (count == 0 || rsrc_data_offset + count > info_length) {
+    }
+    else if (count == 0 || rsrc_data_offset + count > info_length)
+    {
         ret = -EINVAL;
         goto fail;
     }
@@ -318,12 +346,16 @@ static int dmg_read_resource_fork(BlockDriverState *bs, DmgHeaderState *ds,
     info_end = offset + count;
 
     /* read offsets (mish blocks) from one or more resources in resource data */
-    while (offset < info_end) {
+    while (offset < info_end)
+    {
         /* size of following resource */
         ret = read_uint32(bs, offset, &count);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto fail;
-        } else if (count == 0 || count > info_end - offset) {
+        }
+        else if (count == 0 || count > info_end - offset)
+        {
             ret = -EINVAL;
             goto fail;
         }
@@ -331,12 +363,14 @@ static int dmg_read_resource_fork(BlockDriverState *bs, DmgHeaderState *ds,
 
         buffer = g_realloc(buffer, count);
         ret = bdrv_pread(bs->file, offset, buffer, count);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto fail;
         }
 
         ret = dmg_read_mish_block(s, ds, buffer, count);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto fail;
         }
         /* advance offset by size of resource */
@@ -360,7 +394,8 @@ static int dmg_read_plist_xml(BlockDriverState *bs, DmgHeaderState *ds,
     /* Have at least some length to avoid NULL for g_malloc. Attempt to set a
      * safe upper cap on the data length. A test sample had a XML length of
      * about 1 MiB. */
-    if (info_length == 0 || info_length > 16 * 1024 * 1024) {
+    if (info_length == 0 || info_length > 16 * 1024 * 1024)
+    {
         ret = -EINVAL;
         goto fail;
     }
@@ -368,7 +403,8 @@ static int dmg_read_plist_xml(BlockDriverState *bs, DmgHeaderState *ds,
     buffer = g_malloc(info_length + 1);
     buffer[info_length] = '\0';
     ret = bdrv_pread(bs->file, info_begin, buffer, info_length);
-    if (ret != info_length) {
+    if (ret != info_length)
+    {
         ret = -EINVAL;
         goto fail;
     }
@@ -377,14 +413,16 @@ static int dmg_read_plist_xml(BlockDriverState *bs, DmgHeaderState *ds,
      * decode. The actual data element has 431 (0x1af) bytes which includes tabs
      * and line feeds. */
     data_end = (char *)buffer;
-    while ((data_begin = strstr(data_end, "<data>")) != NULL) {
+    while ((data_begin = strstr(data_end, "<data>")) != NULL)
+    {
         guchar *mish;
         gsize out_len = 0;
 
         data_begin += 6;
         data_end = strstr(data_begin, "</data>");
         /* malformed XML? */
-        if (data_end == NULL) {
+        if (data_end == NULL)
+        {
             ret = -EINVAL;
             goto fail;
         }
@@ -392,7 +430,8 @@ static int dmg_read_plist_xml(BlockDriverState *bs, DmgHeaderState *ds,
         mish = g_base64_decode(data_begin, &out_len);
         ret = dmg_read_mish_block(s, ds, mish, (uint32_t)out_len);
         g_free(mish);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto fail;
         }
     }
@@ -425,68 +464,87 @@ static int dmg_open(BlockDriverState *bs, QDict *options, int flags,
 
     /* locate the UDIF trailer */
     offset = dmg_find_koly_offset(bs->file, errp);
-    if (offset < 0) {
+    if (offset < 0)
+    {
         ret = offset;
         goto fail;
     }
 
     /* offset of data fork (DataForkOffset) */
     ret = read_uint64(bs, offset + 0x18, &ds.data_fork_offset);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto fail;
-    } else if (ds.data_fork_offset > offset) {
+    }
+    else if (ds.data_fork_offset > offset)
+    {
         ret = -EINVAL;
         goto fail;
     }
 
     /* offset of resource fork (RsrcForkOffset) */
     ret = read_uint64(bs, offset + 0x28, &rsrc_fork_offset);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto fail;
     }
     ret = read_uint64(bs, offset + 0x30, &rsrc_fork_length);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto fail;
     }
     if (rsrc_fork_offset >= offset ||
-        rsrc_fork_length > offset - rsrc_fork_offset) {
+        rsrc_fork_length > offset - rsrc_fork_offset)
+    {
         ret = -EINVAL;
         goto fail;
     }
     /* offset of property list (XMLOffset) */
     ret = read_uint64(bs, offset + 0xd8, &plist_xml_offset);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto fail;
     }
     ret = read_uint64(bs, offset + 0xe0, &plist_xml_length);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto fail;
     }
     if (plist_xml_offset >= offset ||
-        plist_xml_length > offset - plist_xml_offset) {
+        plist_xml_length > offset - plist_xml_offset)
+    {
         ret = -EINVAL;
         goto fail;
     }
     ret = read_uint64(bs, offset + 0x1ec, (uint64_t *)&bs->total_sectors);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto fail;
     }
-    if (bs->total_sectors < 0) {
+    if (bs->total_sectors < 0)
+    {
         ret = -EINVAL;
         goto fail;
     }
-    if (rsrc_fork_length != 0) {
+    if (rsrc_fork_length != 0)
+    {
         ret = dmg_read_resource_fork(bs, &ds,
                                      rsrc_fork_offset, rsrc_fork_length);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto fail;
         }
-    } else if (plist_xml_length != 0) {
+    }
+    else if (plist_xml_length != 0)
+    {
         ret = dmg_read_plist_xml(bs, &ds, plist_xml_offset, plist_xml_length);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto fail;
         }
-    } else {
+    }
+    else
+    {
         ret = -EINVAL;
         goto fail;
     }
@@ -496,12 +554,14 @@ static int dmg_open(BlockDriverState *bs, QDict *options, int flags,
                                               ds.max_compressed_size + 1);
     s->uncompressed_chunk = qemu_try_blockalign(bs->file->bs,
                                                 512 * ds.max_sectors_per_chunk);
-    if (s->compressed_chunk == NULL || s->uncompressed_chunk == NULL) {
+    if (s->compressed_chunk == NULL || s->uncompressed_chunk == NULL)
+    {
         ret = -ENOMEM;
         goto fail;
     }
 
-    if (inflateInit(&s->zstream) != Z_OK) {
+    if (inflateInit(&s->zstream) != Z_OK)
+    {
         ret = -EINVAL;
         goto fail;
     }
@@ -527,13 +587,16 @@ static void dmg_refresh_limits(BlockDriverState *bs, Error **errp)
     bs->bl.request_alignment = BDRV_SECTOR_SIZE; /* No sub-sector I/O */
 }
 
-static inline int is_sector_in_chunk(BDRVDMGState* s,
-                uint32_t chunk_num, uint64_t sector_num)
+static inline int is_sector_in_chunk(BDRVDMGState *s,
+                                     uint32_t chunk_num, uint64_t sector_num)
 {
     if (chunk_num >= s->n_chunks || s->sectors[chunk_num] > sector_num ||
-            s->sectors[chunk_num] + s->sectorcounts[chunk_num] <= sector_num) {
+        s->sectors[chunk_num] + s->sectorcounts[chunk_num] <= sector_num)
+    {
         return 0;
-    } else {
+    }
+    else
+    {
         return -1;
     }
 }
@@ -542,13 +605,19 @@ static inline uint32_t search_chunk(BDRVDMGState *s, uint64_t sector_num)
 {
     /* binary search */
     uint32_t chunk1 = 0, chunk2 = s->n_chunks, chunk3;
-    while (chunk1 != chunk2) {
+    while (chunk1 != chunk2)
+    {
         chunk3 = (chunk1 + chunk2) / 2;
-        if (s->sectors[chunk3] > sector_num) {
+        if (s->sectors[chunk3] > sector_num)
+        {
             chunk2 = chunk3;
-        } else if (s->sectors[chunk3] + s->sectorcounts[chunk3] > sector_num) {
+        }
+        else if (s->sectors[chunk3] + s->sectorcounts[chunk3] > sector_num)
+        {
             return chunk3;
-        } else {
+        }
+        else
+        {
             chunk1 = chunk3;
         }
     }
@@ -559,22 +628,27 @@ static inline int dmg_read_chunk(BlockDriverState *bs, uint64_t sector_num)
 {
     BDRVDMGState *s = bs->opaque;
 
-    if (!is_sector_in_chunk(s, s->current_chunk, sector_num)) {
+    if (!is_sector_in_chunk(s, s->current_chunk, sector_num))
+    {
         int ret;
         uint32_t chunk = search_chunk(s, sector_num);
 
-        if (chunk >= s->n_chunks) {
+        if (chunk >= s->n_chunks)
+        {
             return -1;
         }
 
         s->current_chunk = s->n_chunks;
-        switch (s->types[chunk]) { /* block entry type */
-        case 0x80000005: { /* zlib compressed */
+        switch (s->types[chunk])
+        { /* block entry type */
+        case 0x80000005:
+        { /* zlib compressed */
             /* we need to buffer, because only the chunk as whole can be
              * inflated. */
             ret = bdrv_pread(bs->file, s->offsets[chunk],
                              s->compressed_chunk, s->lengths[chunk]);
-            if (ret != s->lengths[chunk]) {
+            if (ret != s->lengths[chunk])
+            {
                 return -1;
             }
 
@@ -583,40 +657,46 @@ static inline int dmg_read_chunk(BlockDriverState *bs, uint64_t sector_num)
             s->zstream.next_out = s->uncompressed_chunk;
             s->zstream.avail_out = 512 * s->sectorcounts[chunk];
             ret = inflateReset(&s->zstream);
-            if (ret != Z_OK) {
+            if (ret != Z_OK)
+            {
                 return -1;
             }
             ret = inflate(&s->zstream, Z_FINISH);
             if (ret != Z_STREAM_END ||
-                s->zstream.total_out != 512 * s->sectorcounts[chunk]) {
+                s->zstream.total_out != 512 * s->sectorcounts[chunk])
+            {
                 return -1;
             }
-            break; }
+            break;
+        }
         case 0x80000006: /* bzip2 compressed */
-            if (!dmg_uncompress_bz2) {
+            if (!dmg_uncompress_bz2)
+            {
                 break;
             }
             /* we need to buffer, because only the chunk as whole can be
              * inflated. */
             ret = bdrv_pread(bs->file, s->offsets[chunk],
                              s->compressed_chunk, s->lengths[chunk]);
-            if (ret != s->lengths[chunk]) {
+            if (ret != s->lengths[chunk])
+            {
                 return -1;
             }
 
             ret = dmg_uncompress_bz2((char *)s->compressed_chunk,
-                                     (unsigned int) s->lengths[chunk],
+                                     (unsigned int)s->lengths[chunk],
                                      (char *)s->uncompressed_chunk,
-                                     (unsigned int)
-                                         (512 * s->sectorcounts[chunk]));
-            if (ret < 0) {
+                                     (unsigned int)(512 * s->sectorcounts[chunk]));
+            if (ret < 0)
+            {
                 return ret;
             }
             break;
         case 1: /* copy */
             ret = bdrv_pread(bs->file, s->offsets[chunk],
                              s->uncompressed_chunk, s->lengths[chunk]);
-            if (ret != s->lengths[chunk]) {
+            if (ret != s->lengths[chunk])
+            {
                 return -1;
             }
             break;
@@ -644,18 +724,21 @@ dmg_co_preadv(BlockDriverState *bs, uint64_t offset, uint64_t bytes,
 
     qemu_co_mutex_lock(&s->lock);
 
-    for (i = 0; i < nb_sectors; i++) {
+    for (i = 0; i < nb_sectors; i++)
+    {
         uint32_t sector_offset_in_chunk;
         void *data;
 
-        if (dmg_read_chunk(bs, sector_num + i) != 0) {
+        if (dmg_read_chunk(bs, sector_num + i) != 0)
+        {
             ret = -EIO;
             goto fail;
         }
         /* Special case: current chunk is all zeroes. Do not perform a memcpy as
          * s->uncompressed_chunk may be too small to cover the large all-zeroes
          * section. dmg_read_chunk is called to find s->current_chunk */
-        if (s->types[s->current_chunk] == 2) { /* all zeroes block entry */
+        if (s->types[s->current_chunk] == 2)
+        { /* all zeroes block entry */
             qemu_iovec_memset(qiov, i * 512, 0, 512);
             continue;
         }
@@ -686,13 +769,13 @@ static void dmg_close(BlockDriverState *bs)
 }
 
 static BlockDriver bdrv_dmg = {
-    .format_name    = "dmg",
-    .instance_size  = sizeof(BDRVDMGState),
-    .bdrv_probe     = dmg_probe,
-    .bdrv_open      = dmg_open,
+    .format_name = "dmg",
+    .instance_size = sizeof(BDRVDMGState),
+    .bdrv_probe = dmg_probe,
+    .bdrv_open = dmg_open,
     .bdrv_refresh_limits = dmg_refresh_limits,
     .bdrv_co_preadv = dmg_co_preadv,
-    .bdrv_close     = dmg_close,
+    .bdrv_close = dmg_close,
 };
 
 static void bdrv_dmg_init(void)

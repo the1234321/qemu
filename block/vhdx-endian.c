@@ -27,9 +27,7 @@
  * endianness from disk read to native cpu format, and back again.
  */
 
-
 /* VHDX File Header */
-
 
 void vhdx_header_le_import(VHDXHeader *h)
 {
@@ -54,27 +52,25 @@ void vhdx_header_le_export(VHDXHeader *orig_h, VHDXHeader *new_h)
     assert(orig_h != NULL);
     assert(new_h != NULL);
 
-    new_h->signature       = cpu_to_le32(orig_h->signature);
-    new_h->checksum        = cpu_to_le32(orig_h->checksum);
+    new_h->signature = cpu_to_le32(orig_h->signature);
+    new_h->checksum = cpu_to_le32(orig_h->checksum);
     new_h->sequence_number = cpu_to_le64(orig_h->sequence_number);
 
     new_h->file_write_guid = orig_h->file_write_guid;
     new_h->data_write_guid = orig_h->data_write_guid;
-    new_h->log_guid        = orig_h->log_guid;
+    new_h->log_guid = orig_h->log_guid;
 
     cpu_to_leguids(&new_h->file_write_guid);
     cpu_to_leguids(&new_h->data_write_guid);
     cpu_to_leguids(&new_h->log_guid);
 
-    new_h->log_version     = cpu_to_le16(orig_h->log_version);
-    new_h->version         = cpu_to_le16(orig_h->version);
-    new_h->log_length      = cpu_to_le32(orig_h->log_length);
-    new_h->log_offset      = cpu_to_le64(orig_h->log_offset);
+    new_h->log_version = cpu_to_le16(orig_h->log_version);
+    new_h->version = cpu_to_le16(orig_h->version);
+    new_h->log_length = cpu_to_le32(orig_h->log_length);
+    new_h->log_offset = cpu_to_le64(orig_h->log_offset);
 }
 
-
 /* VHDX Log Headers */
-
 
 void vhdx_log_desc_le_import(VHDXLogDescriptor *d)
 {
@@ -144,7 +140,6 @@ void vhdx_log_entry_hdr_le_export(VHDXLogEntryHeader *hdr)
     cpu_to_le64s(&hdr->last_file_offset);
 }
 
-
 /* Region table entries */
 void vhdx_region_header_le_import(VHDXRegionTableHeader *hdr)
 {
@@ -183,7 +178,6 @@ void vhdx_region_entry_le_export(VHDXRegionTableEntry *e)
     cpu_to_le32s(&e->length);
     cpu_to_le32s(&e->data_bits);
 }
-
 
 /* Metadata headers & table */
 void vhdx_metadata_header_le_import(VHDXMetadataTableHeader *hdr)

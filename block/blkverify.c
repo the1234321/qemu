@@ -15,12 +15,14 @@
 #include "qapi/qmp/qstring.h"
 #include "qemu/cutils.h"
 
-typedef struct {
+typedef struct
+{
     BdrvChild *test_file;
 } BDRVBlkverifyState;
 
 typedef struct BlkverifyAIOCB BlkverifyAIOCB;
-struct BlkverifyAIOCB {
+struct BlkverifyAIOCB
+{
     BlockAIOCB common;
 
     /* Request metadata */
@@ -28,18 +30,18 @@ struct BlkverifyAIOCB {
     int64_t sector_num;
     int nb_sectors;
 
-    int ret;                    /* first completed request's result */
-    unsigned int done;          /* completion counter */
+    int ret;           /* first completed request's result */
+    unsigned int done; /* completion counter */
 
-    QEMUIOVector *qiov;         /* user I/O vector */
-    QEMUIOVector raw_qiov;      /* cloned I/O vector for raw file */
-    void *buf;                  /* buffer for raw file I/O */
+    QEMUIOVector *qiov;    /* user I/O vector */
+    QEMUIOVector raw_qiov; /* cloned I/O vector for raw file */
+    void *buf;             /* buffer for raw file I/O */
 
     void (*verify)(BlkverifyAIOCB *acb);
 };
 
 static const AIOCBInfo blkverify_aiocb_info = {
-    .aiocb_size         = sizeof(BlkverifyAIOCB),
+    .aiocb_size = sizeof(BlkverifyAIOCB),
 };
 
 static void GCC_FMT_ATTR(2, 3) blkverify_err(BlkverifyAIOCB *acb,
@@ -64,9 +66,9 @@ static void blkverify_parse_filename(const char *filename, QDict *options,
     const char *c;
     QString *raw_path;
 
-
     /* Parse the blkverify: prefix */
-    if (!strstart(filename, "blkverify:", &filename)) {
+    if (!strstart(filename, "blkverify:", &filename))
+    {
         /* There was no prefix; therefore, all options have to be already
            present in the QDict (except for the filename) */
         qdict_put(options, "x-image", qstring_from_str(filename));
@@ -75,7 +77,8 @@ static void blkverify_parse_filename(const char *filename, QDict *options,
 
     /* Parse the raw image filename */
     c = strchr(filename, ':');
-    if (c == NULL) {
+    if (c == NULL)
+    {
         error_setg(errp, "blkverify requires raw copy and original image path");
         return;
     }
@@ -103,8 +106,7 @@ static QemuOptsList runtime_opts = {
             .type = QEMU_OPT_STRING,
             .help = "[internal use only, will be removed]",
         },
-        { /* end of list */ }
-    },
+        {/* end of list */}},
 };
 
 static int blkverify_open(BlockDriverState *bs, QDict *options, int flags,
@@ -117,7 +119,8 @@ static int blkverify_open(BlockDriverState *bs, QDict *options, int flags,
 
     opts = qemu_opts_create(&runtime_opts, NULL, 0, &error_abort);
     qemu_opts_absorb_qdict(opts, options, &local_err);
-    if (local_err) {
+    if (local_err)
+    {
         error_propagate(errp, local_err);
         ret = -EINVAL;
         goto fail;
@@ -126,7 +129,8 @@ static int blkverify_open(BlockDriverState *bs, QDict *options, int flags,
     /* Open the raw file */
     bs->file = bdrv_open_child(qemu_opt_get(opts, "x-raw"), options, "raw",
                                bs, &child_file, false, &local_err);
-    if (local_err) {
+    if (local_err)
+    {
         ret = -EINVAL;
         error_propagate(errp, local_err);
         goto fail;
@@ -136,7 +140,8 @@ static int blkverify_open(BlockDriverState *bs, QDict *options, int flags,
     s->test_file = bdrv_open_child(qemu_opt_get(opts, "x-image"), options,
                                    "test", bs, &child_format, false,
                                    &local_err);
-    if (local_err) {
+    if (local_err)
+    {
         ret = -EINVAL;
         error_propagate(errp, local_err);
         goto fail;
@@ -144,7 +149,8 @@ static int blkverify_open(BlockDriverState *bs, QDict *options, int flags,
 
     ret = 0;
 fail:
-    if (ret < 0) {
+    if (ret < 0)
+    {
         bdrv_unref_child(bs, bs->file);
     }
     qemu_opts_del(opts);
@@ -189,7 +195,8 @@ static void blkverify_aio_bh(void *opaque)
 {
     BlkverifyAIOCB *acb = opaque;
 
-    if (acb->buf) {
+    if (acb->buf)
+    {
         qemu_iovec_destroy(&acb->raw_qiov);
         qemu_vfree(acb->buf);
     }
@@ -201,17 +208,20 @@ static void blkverify_aio_cb(void *opaque, int ret)
 {
     BlkverifyAIOCB *acb = opaque;
 
-    switch (++acb->done) {
+    switch (++acb->done)
+    {
     case 1:
         acb->ret = ret;
         break;
 
     case 2:
-        if (acb->ret != ret) {
+        if (acb->ret != ret)
+        {
             blkverify_err(acb, "return value mismatch %d != %d", acb->ret, ret);
         }
 
-        if (acb->verify) {
+        if (acb->verify)
+        {
             acb->verify(acb);
         }
 
@@ -224,15 +234,16 @@ static void blkverify_aio_cb(void *opaque, int ret)
 static void blkverify_verify_readv(BlkverifyAIOCB *acb)
 {
     ssize_t offset = qemu_iovec_compare(acb->qiov, &acb->raw_qiov);
-    if (offset != -1) {
+    if (offset != -1)
+    {
         blkverify_err(acb, "contents mismatch in sector %" PRId64,
                       acb->sector_num + (int64_t)(offset / BDRV_SECTOR_SIZE));
     }
 }
 
 static BlockAIOCB *blkverify_aio_readv(BlockDriverState *bs,
-        int64_t sector_num, QEMUIOVector *qiov, int nb_sectors,
-        BlockCompletionFunc *cb, void *opaque)
+                                       int64_t sector_num, QEMUIOVector *qiov, int nb_sectors,
+                                       BlockCompletionFunc *cb, void *opaque)
 {
     BDRVBlkverifyState *s = bs->opaque;
     BlkverifyAIOCB *acb = blkverify_aio_get(bs, false, sector_num, qiov,
@@ -251,8 +262,8 @@ static BlockAIOCB *blkverify_aio_readv(BlockDriverState *bs,
 }
 
 static BlockAIOCB *blkverify_aio_writev(BlockDriverState *bs,
-        int64_t sector_num, QEMUIOVector *qiov, int nb_sectors,
-        BlockCompletionFunc *cb, void *opaque)
+                                        int64_t sector_num, QEMUIOVector *qiov, int nb_sectors,
+                                        BlockCompletionFunc *cb, void *opaque)
 {
     BDRVBlkverifyState *s = bs->opaque;
     BlkverifyAIOCB *acb = blkverify_aio_get(bs, true, sector_num, qiov,
@@ -282,7 +293,8 @@ static bool blkverify_recurse_is_first_non_filter(BlockDriverState *bs,
 
     bool perm = bdrv_recurse_is_first_non_filter(bs->file->bs, candidate);
 
-    if (perm) {
+    if (perm)
+    {
         return true;
     }
 
@@ -296,8 +308,7 @@ static void blkverify_refresh_filename(BlockDriverState *bs, QDict *options)
     /* bs->file->bs has already been refreshed */
     bdrv_refresh_filename(s->test_file->bs);
 
-    if (bs->file->bs->full_open_options
-        && s->test_file->bs->full_open_options)
+    if (bs->file->bs->full_open_options && s->test_file->bs->full_open_options)
     {
         QDict *opts = qdict_new();
         qdict_put_obj(opts, "driver", QOBJECT(qstring_from_str("blkverify")));
@@ -311,8 +322,7 @@ static void blkverify_refresh_filename(BlockDriverState *bs, QDict *options)
         bs->full_open_options = opts;
     }
 
-    if (bs->file->bs->exact_filename[0]
-        && s->test_file->bs->exact_filename[0])
+    if (bs->file->bs->exact_filename[0] && s->test_file->bs->exact_filename[0])
     {
         snprintf(bs->exact_filename, sizeof(bs->exact_filename),
                  "blkverify:%s:%s",
@@ -322,21 +332,21 @@ static void blkverify_refresh_filename(BlockDriverState *bs, QDict *options)
 }
 
 static BlockDriver bdrv_blkverify = {
-    .format_name                      = "blkverify",
-    .protocol_name                    = "blkverify",
-    .instance_size                    = sizeof(BDRVBlkverifyState),
+    .format_name = "blkverify",
+    .protocol_name = "blkverify",
+    .instance_size = sizeof(BDRVBlkverifyState),
 
-    .bdrv_parse_filename              = blkverify_parse_filename,
-    .bdrv_file_open                   = blkverify_open,
-    .bdrv_close                       = blkverify_close,
-    .bdrv_getlength                   = blkverify_getlength,
-    .bdrv_refresh_filename            = blkverify_refresh_filename,
+    .bdrv_parse_filename = blkverify_parse_filename,
+    .bdrv_file_open = blkverify_open,
+    .bdrv_close = blkverify_close,
+    .bdrv_getlength = blkverify_getlength,
+    .bdrv_refresh_filename = blkverify_refresh_filename,
 
-    .bdrv_aio_readv                   = blkverify_aio_readv,
-    .bdrv_aio_writev                  = blkverify_aio_writev,
-    .bdrv_aio_flush                   = blkverify_aio_flush,
+    .bdrv_aio_readv = blkverify_aio_readv,
+    .bdrv_aio_writev = blkverify_aio_writev,
+    .bdrv_aio_flush = blkverify_aio_flush,
 
-    .is_filter                        = true,
+    .is_filter = true,
     .bdrv_recurse_is_first_non_filter = blkverify_recurse_is_first_non_filter,
 };
 

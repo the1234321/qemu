@@ -39,20 +39,29 @@ static unsigned int qed_count_contiguous_clusters(BDRVQEDState *s,
 
     *offset = last;
 
-    for (i = index + 1; i < end; i++) {
-        if (qed_offset_is_unalloc_cluster(last)) {
+    for (i = index + 1; i < end; i++)
+    {
+        if (qed_offset_is_unalloc_cluster(last))
+        {
             /* Counting unallocated clusters */
-            if (!qed_offset_is_unalloc_cluster(table->offsets[i])) {
+            if (!qed_offset_is_unalloc_cluster(table->offsets[i]))
+            {
                 break;
             }
-        } else if (qed_offset_is_zero_cluster(last)) {
+        }
+        else if (qed_offset_is_zero_cluster(last))
+        {
             /* Counting zero clusters */
-            if (!qed_offset_is_zero_cluster(table->offsets[i])) {
+            if (!qed_offset_is_zero_cluster(table->offsets[i]))
+            {
                 break;
             }
-        } else {
+        }
+        else
+        {
             /* Counting allocated clusters */
-            if (table->offsets[i] != last + s->header.cluster_size) {
+            if (table->offsets[i] != last + s->header.cluster_size)
+            {
                 break;
             }
             last = table->offsets[i];
@@ -61,7 +70,8 @@ static unsigned int qed_count_contiguous_clusters(BDRVQEDState *s,
     return i - index;
 }
 
-typedef struct {
+typedef struct
+{
     BDRVQEDState *s;
     uint64_t pos;
     size_t len;
@@ -83,29 +93,37 @@ static void qed_find_cluster_cb(void *opaque, int ret)
     unsigned int index;
     unsigned int n;
 
-    if (ret) {
+    if (ret)
+    {
         goto out;
     }
 
     index = qed_l2_index(s, find_cluster_cb->pos);
     n = qed_bytes_to_clusters(s,
                               qed_offset_into_cluster(s, find_cluster_cb->pos) +
-                              find_cluster_cb->len);
+                                  find_cluster_cb->len);
     n = qed_count_contiguous_clusters(s, request->l2_table->table,
                                       index, n, &offset);
 
-    if (qed_offset_is_unalloc_cluster(offset)) {
+    if (qed_offset_is_unalloc_cluster(offset))
+    {
         ret = QED_CLUSTER_L2;
-    } else if (qed_offset_is_zero_cluster(offset)) {
+    }
+    else if (qed_offset_is_zero_cluster(offset))
+    {
         ret = QED_CLUSTER_ZERO;
-    } else if (qed_check_cluster_offset(s, offset)) {
+    }
+    else if (qed_check_cluster_offset(s, offset))
+    {
         ret = QED_CLUSTER_FOUND;
-    } else {
+    }
+    else
+    {
         ret = -EINVAL;
     }
 
     len = MIN(find_cluster_cb->len, n * s->header.cluster_size -
-              qed_offset_into_cluster(s, find_cluster_cb->pos));
+                                        qed_offset_into_cluster(s, find_cluster_cb->pos));
 
 out:
     find_cluster_cb->cb(find_cluster_cb->opaque, ret, offset, len);
@@ -144,11 +162,13 @@ void qed_find_cluster(BDRVQEDState *s, QEDRequest *request, uint64_t pos,
     len = MIN(len, (((pos >> s->l1_shift) + 1) << s->l1_shift) - pos);
 
     l2_offset = s->l1_table->offsets[qed_l1_index(s, pos)];
-    if (qed_offset_is_unalloc_cluster(l2_offset)) {
+    if (qed_offset_is_unalloc_cluster(l2_offset))
+    {
         cb(opaque, QED_CLUSTER_L1, 0, len);
         return;
     }
-    if (!qed_check_table_offset(s, l2_offset)) {
+    if (!qed_check_table_offset(s, l2_offset))
+    {
         cb(opaque, -EINVAL, 0, 0);
         return;
     }

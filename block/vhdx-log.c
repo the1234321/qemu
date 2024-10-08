@@ -26,20 +26,21 @@
 #include "qemu/bswap.h"
 #include "block/vhdx.h"
 
-
-typedef struct VHDXLogSequence {
+typedef struct VHDXLogSequence
+{
     bool valid;
     uint32_t count;
     VHDXLogEntries log;
     VHDXLogEntryHeader hdr;
 } VHDXLogSequence;
 
-typedef struct VHDXLogDescEntries {
+typedef struct VHDXLogDescEntries
+{
     VHDXLogEntryHeader hdr;
     VHDXLogDescriptor desc[];
 } VHDXLogDescEntries;
 
-static const MSGUID zero_guid = { 0 };
+static const MSGUID zero_guid = {0};
 
 /* The log located on the disk is circular buffer containing
  * sectors of 4096 bytes each.
@@ -50,7 +51,6 @@ static const MSGUID zero_guid = { 0 };
  * sector, this method should be compatible with other methods that
  * do not waste a sector.
  */
-
 
 /* Allow peeking at the hdr entry at the beginning of the current
  * read index, without advancing the read index */
@@ -64,7 +64,8 @@ static int vhdx_log_peek_hdr(BlockDriverState *bs, VHDXLogEntries *log,
     assert(hdr != NULL);
 
     /* peek is only supported on sector boundaries */
-    if (log->read % VHDX_LOG_SECTOR_SIZE) {
+    if (log->read % VHDX_LOG_SECTOR_SIZE)
+    {
         ret = -EFAULT;
         goto exit;
     }
@@ -73,11 +74,13 @@ static int vhdx_log_peek_hdr(BlockDriverState *bs, VHDXLogEntries *log,
     /* we are guaranteed that a) log sectors are 4096 bytes,
      * and b) the log length is a multiple of 1MB. So, there
      * is always a round number of sectors in the buffer */
-    if ((read + sizeof(VHDXLogEntryHeader)) > log->length) {
+    if ((read + sizeof(VHDXLogEntryHeader)) > log->length)
+    {
         read = 0;
     }
 
-    if (read == log->write) {
+    if (read == log->write)
+    {
         ret = -EINVAL;
         goto exit;
     }
@@ -85,7 +88,8 @@ static int vhdx_log_peek_hdr(BlockDriverState *bs, VHDXLogEntries *log,
     offset = log->offset + read;
 
     ret = bdrv_pread(bs->file, offset, hdr, sizeof(VHDXLogEntryHeader));
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto exit;
     }
     vhdx_log_entry_hdr_le_import(hdr);
@@ -104,11 +108,10 @@ static int vhdx_log_inc_idx(uint32_t idx, uint64_t length)
     return idx >= length ? 0 : idx;
 }
 
-
 /* Reset the log to empty */
 static void vhdx_log_reset(BlockDriverState *bs, BDRVVHDXState *s)
 {
-    MSGUID guid = { 0 };
+    MSGUID guid = {0};
     s->log.read = s->log.write = 0;
     /* a log guid of 0 indicates an empty log to any parser of v0
      * VHDX logs */
@@ -137,15 +140,18 @@ static int vhdx_log_read_sectors(BlockDriverState *bs, VHDXLogEntries *log,
     read = log->read;
 
     *sectors_read = 0;
-    while (num_sectors) {
-        if (read == log->write) {
+    while (num_sectors)
+    {
+        if (read == log->write)
+        {
             /* empty */
             break;
         }
         offset = log->offset + read;
 
         ret = bdrv_pread(bs->file, offset, buffer, VHDX_LOG_SECTOR_SIZE);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto exit;
         }
         read = vhdx_log_inc_idx(read, log->length);
@@ -155,7 +161,8 @@ static int vhdx_log_read_sectors(BlockDriverState *bs, VHDXLogEntries *log,
     }
 
 exit:
-    if (!peek) {
+    if (!peek)
+    {
         log->read = read;
     }
     return ret;
@@ -179,24 +186,28 @@ static int vhdx_log_write_sectors(BlockDriverState *bs, VHDXLogEntries *log,
     BDRVVHDXState *s = bs->opaque;
 
     ret = vhdx_user_visible_write(bs, s);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto exit;
     }
 
     write = log->write;
 
     buffer_tmp = buffer;
-    while (num_sectors) {
+    while (num_sectors)
+    {
 
         offset = log->offset + write;
         write = vhdx_log_inc_idx(write, log->length);
-        if (write == log->read) {
+        if (write == log->read)
+        {
             /* full */
             break;
         }
         ret = bdrv_pwrite(bs->file, offset, buffer_tmp,
                           VHDX_LOG_SECTOR_SIZE);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto exit;
         }
         buffer_tmp += VHDX_LOG_SECTOR_SIZE;
@@ -210,40 +221,45 @@ exit:
     return ret;
 }
 
-
 /* Validates a log entry header */
 static bool vhdx_log_hdr_is_valid(VHDXLogEntries *log, VHDXLogEntryHeader *hdr,
                                   BDRVVHDXState *s)
 {
     int valid = false;
 
-    if (hdr->signature != VHDX_LOG_SIGNATURE) {
+    if (hdr->signature != VHDX_LOG_SIGNATURE)
+    {
         goto exit;
     }
 
     /* if the individual entry length is larger than the whole log
      * buffer, that is obviously invalid */
-    if (log->length < hdr->entry_length) {
+    if (log->length < hdr->entry_length)
+    {
         goto exit;
     }
 
     /* length of entire entry must be in units of 4KB (log sector size) */
-    if (hdr->entry_length % (VHDX_LOG_SECTOR_SIZE)) {
+    if (hdr->entry_length % (VHDX_LOG_SECTOR_SIZE))
+    {
         goto exit;
     }
 
     /* per spec, sequence # must be > 0 */
-    if (hdr->sequence_number == 0) {
+    if (hdr->sequence_number == 0)
+    {
         goto exit;
     }
 
     /* log entries are only valid if they match the file-wide log guid
      * found in the active header */
-    if (!guid_eq(hdr->log_guid, s->headers[s->curr_header]->log_guid)) {
+    if (!guid_eq(hdr->log_guid, s->headers[s->curr_header]->log_guid))
+    {
         goto exit;
     }
 
-    if (hdr->descriptor_count * sizeof(VHDXLogDescriptor) > hdr->entry_length) {
+    if (hdr->descriptor_count * sizeof(VHDXLogDescriptor) > hdr->entry_length)
+    {
         goto exit;
     }
 
@@ -274,27 +290,32 @@ static bool vhdx_log_desc_is_valid(VHDXLogDescriptor *desc,
 {
     bool ret = false;
 
-    if (desc->sequence_number != hdr->sequence_number) {
+    if (desc->sequence_number != hdr->sequence_number)
+    {
         goto exit;
     }
-    if (desc->file_offset % VHDX_LOG_SECTOR_SIZE) {
+    if (desc->file_offset % VHDX_LOG_SECTOR_SIZE)
+    {
         goto exit;
     }
 
-    if (desc->signature == VHDX_LOG_ZERO_SIGNATURE) {
-        if (desc->zero_length % VHDX_LOG_SECTOR_SIZE == 0) {
+    if (desc->signature == VHDX_LOG_ZERO_SIGNATURE)
+    {
+        if (desc->zero_length % VHDX_LOG_SECTOR_SIZE == 0)
+        {
             /* valid */
             ret = true;
         }
-    } else if (desc->signature == VHDX_LOG_DESC_SIGNATURE) {
-            /* valid */
-            ret = true;
+    }
+    else if (desc->signature == VHDX_LOG_DESC_SIGNATURE)
+    {
+        /* valid */
+        ret = true;
     }
 
 exit:
     return ret;
 }
-
 
 /* Prior to sector data for a log entry, there is the header
  * and the descriptors referenced in the header:
@@ -320,13 +341,13 @@ static int vhdx_compute_desc_sectors(uint32_t desc_cnt)
 
     desc_cnt += 2; /* account for header in first sector */
     desc_sectors = desc_cnt / 128;
-    if (desc_cnt % 128) {
+    if (desc_cnt % 128)
+    {
         desc_sectors++;
     }
 
     return desc_sectors;
 }
-
 
 /* Reads the log header, and subsequent descriptors (if any).  This
  * will allocate all the space for buffer, which must be NULL when
@@ -347,11 +368,13 @@ static int vhdx_log_read_desc(BlockDriverState *bs, BDRVVHDXState *s,
     assert(*buffer == NULL);
 
     ret = vhdx_log_peek_hdr(bs, log, &hdr);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto exit;
     }
 
-    if (vhdx_log_hdr_is_valid(log, &hdr, s) == false) {
+    if (vhdx_log_hdr_is_valid(log, &hdr, s) == false)
+    {
         ret = -EINVAL;
         goto exit;
     }
@@ -359,34 +382,41 @@ static int vhdx_log_read_desc(BlockDriverState *bs, BDRVVHDXState *s,
     desc_sectors = vhdx_compute_desc_sectors(hdr.descriptor_count);
     desc_entries = qemu_try_blockalign(bs->file->bs,
                                        desc_sectors * VHDX_LOG_SECTOR_SIZE);
-    if (desc_entries == NULL) {
+    if (desc_entries == NULL)
+    {
         ret = -ENOMEM;
         goto exit;
     }
 
     ret = vhdx_log_read_sectors(bs, log, &sectors_read, desc_entries,
                                 desc_sectors, false);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto free_and_exit;
     }
-    if (sectors_read != desc_sectors) {
+    if (sectors_read != desc_sectors)
+    {
         ret = -EINVAL;
         goto free_and_exit;
     }
 
     /* put in proper endianness, and validate each desc */
-    for (i = 0; i < hdr.descriptor_count; i++) {
+    for (i = 0; i < hdr.descriptor_count; i++)
+    {
         desc = desc_entries->desc[i];
         vhdx_log_desc_le_import(&desc);
-        if (convert_endian) {
+        if (convert_endian)
+        {
             desc_entries->desc[i] = desc;
         }
-        if (vhdx_log_desc_is_valid(&desc, &hdr) == false) {
+        if (vhdx_log_desc_is_valid(&desc, &hdr) == false)
+        {
             ret = -EINVAL;
             goto free_and_exit;
         }
     }
-    if (convert_endian) {
+    if (convert_endian)
+    {
         desc_entries->hdr = hdr;
     }
 
@@ -398,7 +428,6 @@ free_and_exit:
 exit:
     return ret;
 }
-
 
 /* Flushes the descriptor described by desc to the VHDX image file.
  * If the descriptor is a data descriptor, than 'data' must be non-NULL,
@@ -423,9 +452,11 @@ static int vhdx_log_flush_desc(BlockDriverState *bs, VHDXLogDescriptor *desc,
 
     buffer = qemu_blockalign(bs, VHDX_LOG_SECTOR_SIZE);
 
-    if (desc->signature == VHDX_LOG_DESC_SIGNATURE) {
+    if (desc->signature == VHDX_LOG_DESC_SIGNATURE)
+    {
         /* data sector */
-        if (data == NULL) {
+        if (data == NULL)
+        {
             ret = -EFAULT;
             goto exit;
         }
@@ -436,7 +467,8 @@ static int vhdx_log_flush_desc(BlockDriverState *bs, VHDXLogDescriptor *desc,
         seq <<= 32;
         seq |= data->sequence_low & 0xffffffff;
 
-        if (seq != desc->sequence_number) {
+        if (seq != desc->sequence_number)
+        {
             ret = -EINVAL;
             goto exit;
         }
@@ -446,18 +478,21 @@ static int vhdx_log_flush_desc(BlockDriverState *bs, VHDXLogDescriptor *desc,
         memcpy(buffer, &desc->leading_bytes, 8);
         offset += 8;
 
-        memcpy(buffer+offset, data->data, 4084);
+        memcpy(buffer + offset, data->data, 4084);
         offset += 4084;
 
-        memcpy(buffer+offset, &desc->trailing_bytes, 4);
-
-    } else if (desc->signature == VHDX_LOG_ZERO_SIGNATURE) {
+        memcpy(buffer + offset, &desc->trailing_bytes, 4);
+    }
+    else if (desc->signature == VHDX_LOG_ZERO_SIGNATURE)
+    {
         /* write 'count' sectors of sector */
         memset(buffer, 0, VHDX_LOG_SECTOR_SIZE);
         count = desc->zero_length / VHDX_LOG_SECTOR_SIZE;
-    } else {
+    }
+    else
+    {
         error_report("Invalid VHDX log descriptor entry signature 0x%" PRIx32,
-                      desc->signature);
+                     desc->signature);
         ret = -EINVAL;
         goto exit;
     }
@@ -465,10 +500,12 @@ static int vhdx_log_flush_desc(BlockDriverState *bs, VHDXLogDescriptor *desc,
     file_offset = desc->file_offset;
 
     /* count is only > 1 if we are writing zeroes */
-    for (i = 0; i < count; i++) {
+    for (i = 0; i < count; i++)
+    {
         ret = bdrv_pwrite_sync(bs->file, file_offset, buffer,
                                VHDX_LOG_SECTOR_SIZE);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto exit;
         }
         file_offset += VHDX_LOG_SECTOR_SIZE;
@@ -492,46 +529,55 @@ static int vhdx_log_flush(BlockDriverState *bs, BDRVVHDXState *s,
     uint64_t new_file_size;
     void *data = NULL;
     VHDXLogDescEntries *desc_entries = NULL;
-    VHDXLogEntryHeader hdr_tmp = { 0 };
+    VHDXLogEntryHeader hdr_tmp = {0};
 
     cnt = logs->count;
 
     data = qemu_blockalign(bs, VHDX_LOG_SECTOR_SIZE);
 
     ret = vhdx_user_visible_write(bs, s);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto exit;
     }
 
     /* each iteration represents one log sequence, which may span multiple
      * sectors */
-    while (cnt--) {
+    while (cnt--)
+    {
         ret = vhdx_log_peek_hdr(bs, &logs->log, &hdr_tmp);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto exit;
         }
         /* if the log shows a FlushedFileOffset larger than our current file
          * size, then that means the file has been truncated / corrupted, and
          * we must refused to open it / use it */
-        if (hdr_tmp.flushed_file_offset > bdrv_getlength(bs->file->bs)) {
+        if (hdr_tmp.flushed_file_offset > bdrv_getlength(bs->file->bs))
+        {
             ret = -EINVAL;
             goto exit;
         }
 
         ret = vhdx_log_read_desc(bs, s, &logs->log, &desc_entries, true);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto exit;
         }
 
-        for (i = 0; i < desc_entries->hdr.descriptor_count; i++) {
-            if (desc_entries->desc[i].signature == VHDX_LOG_DESC_SIGNATURE) {
+        for (i = 0; i < desc_entries->hdr.descriptor_count; i++)
+        {
+            if (desc_entries->desc[i].signature == VHDX_LOG_DESC_SIGNATURE)
+            {
                 /* data sector, so read a sector to flush */
                 ret = vhdx_log_read_sectors(bs, &logs->log, &sectors_read,
                                             data, 1, false);
-                if (ret < 0) {
+                if (ret < 0)
+                {
                     goto exit;
                 }
-                if (sectors_read != 1) {
+                if (sectors_read != 1)
+                {
                     ret = -EINVAL;
                     goto exit;
                 }
@@ -539,13 +585,16 @@ static int vhdx_log_flush(BlockDriverState *bs, BDRVVHDXState *s,
             }
 
             ret = vhdx_log_flush_desc(bs, &desc_entries->desc[i], data);
-            if (ret < 0) {
+            if (ret < 0)
+            {
                 goto exit;
             }
         }
-        if (bdrv_getlength(bs->file->bs) < desc_entries->hdr.last_file_offset) {
+        if (bdrv_getlength(bs->file->bs) < desc_entries->hdr.last_file_offset)
+        {
             new_file_size = desc_entries->hdr.last_file_offset;
-            if (new_file_size % (1024*1024)) {
+            if (new_file_size % (1024 * 1024))
+            {
                 /* round up to nearest 1MB boundary */
                 new_file_size = ((new_file_size >> 20) + 1) << 20;
                 bdrv_truncate(bs->file->bs, new_file_size);
@@ -580,16 +629,20 @@ static int vhdx_validate_log_entry(BlockDriverState *bs, BDRVVHDXState *s,
     *valid = false;
 
     ret = vhdx_log_peek_hdr(bs, log, &hdr);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto inc_and_exit;
     }
 
-    if (vhdx_log_hdr_is_valid(log, &hdr, s) == false) {
+    if (vhdx_log_hdr_is_valid(log, &hdr, s) == false)
+    {
         goto inc_and_exit;
     }
 
-    if (seq > 0) {
-        if (hdr.sequence_number != seq + 1) {
+    if (seq > 0)
+    {
+        if (hdr.sequence_number != seq + 1)
+        {
             goto inc_and_exit;
         }
     }
@@ -600,24 +653,27 @@ static int vhdx_validate_log_entry(BlockDriverState *bs, BDRVVHDXState *s,
 
     total_sectors = hdr.entry_length / VHDX_LOG_SECTOR_SIZE;
 
-
     /* read_desc() will increment the read idx */
     ret = vhdx_log_read_desc(bs, s, log, &desc_buffer, false);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto free_and_exit;
     }
 
     crc = vhdx_checksum_calc(0xffffffff, (void *)desc_buffer,
-                            desc_sectors * VHDX_LOG_SECTOR_SIZE, 4);
+                             desc_sectors * VHDX_LOG_SECTOR_SIZE, 4);
     crc ^= 0xffffffff;
 
     buffer = qemu_blockalign(bs, VHDX_LOG_SECTOR_SIZE);
-    if (total_sectors > desc_sectors) {
-        for (i = 0; i < total_sectors - desc_sectors; i++) {
+    if (total_sectors > desc_sectors)
+    {
+        for (i = 0; i < total_sectors - desc_sectors; i++)
+        {
             sectors_read = 0;
             ret = vhdx_log_read_sectors(bs, log, &sectors_read, buffer,
                                         1, false);
-            if (ret < 0 || sectors_read != 1) {
+            if (ret < 0 || sectors_read != 1)
+            {
                 goto free_and_exit;
             }
             crc = vhdx_checksum_calc(crc, buffer, VHDX_LOG_SECTOR_SIZE, -1);
@@ -625,7 +681,8 @@ static int vhdx_validate_log_entry(BlockDriverState *bs, BDRVVHDXState *s,
         }
     }
     crc ^= 0xffffffff;
-    if (crc != hdr.checksum) {
+    if (crc != hdr.checksum)
+    {
         goto free_and_exit;
     }
 
@@ -651,46 +708,50 @@ static int vhdx_log_search(BlockDriverState *bs, BDRVVHDXState *s,
     int ret = 0;
     uint32_t tail;
     bool seq_valid = false;
-    VHDXLogSequence candidate = { 0 };
-    VHDXLogEntryHeader hdr = { 0 };
+    VHDXLogSequence candidate = {0};
+    VHDXLogEntryHeader hdr = {0};
     VHDXLogEntries curr_log;
 
     memcpy(&curr_log, &s->log, sizeof(VHDXLogEntries));
-    curr_log.write = curr_log.length;   /* assume log is full */
+    curr_log.write = curr_log.length; /* assume log is full */
     curr_log.read = 0;
-
 
     /* now we will go through the whole log sector by sector, until
      * we find a valid, active log sequence, or reach the end of the
      * log buffer */
-    for (;;) {
+    for (;;)
+    {
         uint64_t curr_seq = 0;
-        VHDXLogSequence current = { 0 };
+        VHDXLogSequence current = {0};
 
         tail = curr_log.read;
 
         ret = vhdx_validate_log_entry(bs, s, &curr_log, curr_seq,
                                       &seq_valid, &hdr);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto exit;
         }
 
-        if (seq_valid) {
-            current.valid     = true;
-            current.log       = curr_log;
-            current.log.read  = tail;
+        if (seq_valid)
+        {
+            current.valid = true;
+            current.log = curr_log;
+            current.log.read = tail;
             current.log.write = curr_log.read;
-            current.count     = 1;
-            current.hdr       = hdr;
+            current.count = 1;
+            current.hdr = hdr;
 
-
-            for (;;) {
+            for (;;)
+            {
                 ret = vhdx_validate_log_entry(bs, s, &curr_log, curr_seq,
                                               &seq_valid, &hdr);
-                if (ret < 0) {
+                if (ret < 0)
+                {
                     goto exit;
                 }
-                if (seq_valid == false) {
+                if (seq_valid == false)
+                {
                     break;
                 }
                 current.log.write = curr_log.read;
@@ -700,25 +761,28 @@ static int vhdx_log_search(BlockDriverState *bs, BDRVVHDXState *s,
             }
         }
 
-        if (current.valid) {
+        if (current.valid)
+        {
             if (candidate.valid == false ||
-                current.hdr.sequence_number > candidate.hdr.sequence_number) {
+                current.hdr.sequence_number > candidate.hdr.sequence_number)
+            {
                 candidate = current;
             }
         }
 
-        if (curr_log.read < tail) {
+        if (curr_log.read < tail)
+        {
             break;
         }
     }
 
     *logs = candidate;
 
-    if (candidate.valid) {
+    if (candidate.valid)
+    {
         /* this is the next sequence number, for writes */
         s->log.sequence = candidate.hdr.sequence_number + 1;
     }
-
 
 exit:
     return ret;
@@ -734,14 +798,15 @@ int vhdx_parse_log(BlockDriverState *bs, BDRVVHDXState *s, bool *flushed,
 {
     int ret = 0;
     VHDXHeader *hdr;
-    VHDXLogSequence logs = { 0 };
+    VHDXLogSequence logs = {0};
 
     hdr = s->headers[s->curr_header];
 
     *flushed = false;
 
     /* s->log.hdr is freed in vhdx_close() */
-    if (s->log.hdr == NULL) {
+    if (s->log.hdr == NULL)
+    {
         s->log.hdr = qemu_blockalign(bs, sizeof(VHDXLogEntryHeader));
     }
 
@@ -749,67 +814,72 @@ int vhdx_parse_log(BlockDriverState *bs, BDRVVHDXState *s, bool *flushed,
     s->log.length = hdr->log_length;
 
     if (s->log.offset < VHDX_LOG_MIN_SIZE ||
-        s->log.offset % VHDX_LOG_MIN_SIZE) {
+        s->log.offset % VHDX_LOG_MIN_SIZE)
+    {
         ret = -EINVAL;
         goto exit;
     }
 
     /* per spec, only log version of 0 is supported */
-    if (hdr->log_version != 0) {
+    if (hdr->log_version != 0)
+    {
         ret = -EINVAL;
         goto exit;
     }
 
     /* If either the log guid, or log length is zero,
      * then a replay log is not present */
-    if (guid_eq(hdr->log_guid, zero_guid)) {
+    if (guid_eq(hdr->log_guid, zero_guid))
+    {
         goto exit;
     }
 
-    if (hdr->log_length == 0) {
+    if (hdr->log_length == 0)
+    {
         goto exit;
     }
 
-    if (hdr->log_length % VHDX_LOG_MIN_SIZE) {
+    if (hdr->log_length % VHDX_LOG_MIN_SIZE)
+    {
         ret = -EINVAL;
         goto exit;
     }
-
 
     /* The log is present, we need to find if and where there is an active
      * sequence of valid entries present in the log.  */
 
     ret = vhdx_log_search(bs, s, &logs);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto exit;
     }
 
-    if (logs.valid) {
-        if (bs->read_only) {
+    if (logs.valid)
+    {
+        if (bs->read_only)
+        {
             ret = -EPERM;
             error_setg(errp,
                        "VHDX image file '%s' opened read-only, but "
                        "contains a log that needs to be replayed",
                        bs->filename);
-            error_append_hint(errp,  "To replay the log, run:\n"
-                              "qemu-img check -r all '%s'\n",
+            error_append_hint(errp, "To replay the log, run:\n"
+                                    "qemu-img check -r all '%s'\n",
                               bs->filename);
             goto exit;
         }
         /* now flush the log */
         ret = vhdx_log_flush(bs, s, &logs);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             goto exit;
         }
         *flushed = true;
     }
 
-
 exit:
     return ret;
 }
-
-
 
 static void vhdx_log_raw_to_le_sector(VHDXLogDescriptor *desc,
                                       VHDXLogDataSector *sector, void *data,
@@ -825,14 +895,13 @@ static void vhdx_log_raw_to_le_sector(VHDXLogDescriptor *desc,
     cpu_to_le32s(&desc->trailing_bytes);
     data += 4;
 
-    sector->sequence_high  = (uint32_t) (seq >> 32);
-    sector->sequence_low   = (uint32_t) (seq & 0xffffffff);
+    sector->sequence_high = (uint32_t)(seq >> 32);
+    sector->sequence_low = (uint32_t)(seq & 0xffffffff);
     sector->data_signature = VHDX_LOG_DATA_SIGNATURE;
 
     vhdx_log_desc_le_export(desc);
     vhdx_log_data_le_export(sector);
 }
-
 
 static int vhdx_log_write(BlockDriverState *bs, BDRVVHDXState *s,
                           void *data, uint32_t length, uint64_t offset)
@@ -855,22 +924,26 @@ static int vhdx_log_write(BlockDriverState *bs, BDRVVHDXState *s,
     VHDXLogEntryHeader new_hdr;
     VHDXLogDescriptor *new_desc = NULL;
     VHDXLogDataSector *data_sector = NULL;
-    MSGUID new_guid = { 0 };
+    MSGUID new_guid = {0};
 
     header = s->headers[s->curr_header];
 
     /* need to have offset read data, and be on 4096 byte boundary */
 
-    if (length > header->log_length) {
+    if (length > header->log_length)
+    {
         /* no log present.  we could create a log here instead of failing */
         ret = -EINVAL;
         goto exit;
     }
 
-    if (guid_eq(header->log_guid, zero_guid)) {
+    if (guid_eq(header->log_guid, zero_guid))
+    {
         vhdx_guid_generate(&new_guid);
         vhdx_update_headers(bs, s, false, &new_guid);
-    } else {
+    }
+    else
+    {
         /* currently, we require that the log be flushed after
          * every write. */
         ret = -ENOTSUP;
@@ -879,7 +952,8 @@ static int vhdx_log_write(BlockDriverState *bs, BDRVVHDXState *s,
 
     /* 0 is an invalid sequence number, but may also represent the first
      * log write (or a wrapped seq) */
-    if (s->log.sequence == 0) {
+    if (s->log.sequence == 0)
+    {
         s->log.sequence = 1;
     }
 
@@ -889,7 +963,8 @@ static int vhdx_log_write(BlockDriverState *bs, BDRVVHDXState *s,
     aligned_length = length;
 
     /* add in the unaligned head and tail bytes */
-    if (sector_offset) {
+    if (sector_offset)
+    {
         leading_length = (VHDX_LOG_SECTOR_SIZE - sector_offset);
         leading_length = leading_length > length ? length : leading_length;
         aligned_length -= leading_length;
@@ -898,7 +973,8 @@ static int vhdx_log_write(BlockDriverState *bs, BDRVVHDXState *s,
 
     sectors = aligned_length / VHDX_LOG_SECTOR_SIZE;
     trailing_length = aligned_length - (sectors * VHDX_LOG_SECTOR_SIZE);
-    if (trailing_length) {
+    if (trailing_length)
+    {
         partial_sectors++;
     }
 
@@ -907,15 +983,15 @@ static int vhdx_log_write(BlockDriverState *bs, BDRVVHDXState *s,
     /* sectors is now how many sectors the data itself takes, not
      * including the header and descriptor metadata */
 
-    new_hdr = (VHDXLogEntryHeader) {
-                .signature           = VHDX_LOG_SIGNATURE,
-                .tail                = s->log.tail,
-                .sequence_number     = s->log.sequence,
-                .descriptor_count    = sectors,
-                .reserved            = 0,
-                .flushed_file_offset = bdrv_getlength(bs->file->bs),
-                .last_file_offset    = bdrv_getlength(bs->file->bs),
-              };
+    new_hdr = (VHDXLogEntryHeader){
+        .signature = VHDX_LOG_SIGNATURE,
+        .tail = s->log.tail,
+        .sequence_number = s->log.sequence,
+        .descriptor_count = sectors,
+        .reserved = 0,
+        .flushed_file_offset = bdrv_getlength(bs->file->bs),
+        .last_file_offset = bdrv_getlength(bs->file->bs),
+    };
 
     new_hdr.log_guid = header->log_guid;
 
@@ -938,34 +1014,42 @@ static int vhdx_log_write(BlockDriverState *bs, BDRVVHDXState *s,
      * destination */
     merged_sector = qemu_blockalign(bs, VHDX_LOG_SECTOR_SIZE);
 
-    for (i = 0; i < sectors; i++) {
-        new_desc->signature       = VHDX_LOG_DESC_SIGNATURE;
+    for (i = 0; i < sectors; i++)
+    {
+        new_desc->signature = VHDX_LOG_DESC_SIGNATURE;
         new_desc->sequence_number = s->log.sequence;
-        new_desc->file_offset     = file_offset;
+        new_desc->file_offset = file_offset;
 
-        if (i == 0 && leading_length) {
+        if (i == 0 && leading_length)
+        {
             /* partial sector at the front of the buffer */
             ret = bdrv_pread(bs->file, file_offset, merged_sector,
                              VHDX_LOG_SECTOR_SIZE);
-            if (ret < 0) {
+            if (ret < 0)
+            {
                 goto exit;
             }
             memcpy(merged_sector + sector_offset, data_tmp, leading_length);
             bytes_written = leading_length;
             sector_write = merged_sector;
-        } else if (i == sectors - 1 && trailing_length) {
+        }
+        else if (i == sectors - 1 && trailing_length)
+        {
             /* partial sector at the end of the buffer */
             ret = bdrv_pread(bs->file,
-                            file_offset,
-                            merged_sector + trailing_length,
-                            VHDX_LOG_SECTOR_SIZE - trailing_length);
-            if (ret < 0) {
+                             file_offset,
+                             merged_sector + trailing_length,
+                             VHDX_LOG_SECTOR_SIZE - trailing_length);
+            if (ret < 0)
+            {
                 goto exit;
             }
             memcpy(merged_sector, data_tmp, trailing_length);
             bytes_written = trailing_length;
             sector_write = merged_sector;
-        } else {
+        }
+        else
+        {
             bytes_written = VHDX_LOG_SECTOR_SIZE;
             sector_write = data_tmp;
         }
@@ -990,11 +1074,13 @@ static int vhdx_log_write(BlockDriverState *bs, BDRVVHDXState *s,
     /* now write to the log */
     ret = vhdx_log_write_sectors(bs, &s->log, &sectors_written, buffer,
                                  desc_sectors + sectors);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto exit;
     }
 
-    if (sectors_written != desc_sectors + sectors) {
+    if (sectors_written != desc_sectors + sectors)
+    {
         /* instead of failing, we could flush the log here */
         ret = -EINVAL;
         goto exit;
@@ -1015,16 +1101,16 @@ int vhdx_log_write_and_flush(BlockDriverState *bs, BDRVVHDXState *s,
                              void *data, uint32_t length, uint64_t offset)
 {
     int ret = 0;
-    VHDXLogSequence logs = { .valid = true,
-                             .count = 1,
-                             .hdr = { 0 } };
-
+    VHDXLogSequence logs = {.valid = true,
+                            .count = 1,
+                            .hdr = {0}};
 
     /* Make sure data written (new and/or changed blocks) is stable
      * on disk, before creating log entry */
     bdrv_flush(bs);
     ret = vhdx_log_write(bs, s, data, length, offset);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto exit;
     }
     logs.log = s->log;
@@ -1032,7 +1118,8 @@ int vhdx_log_write_and_flush(BlockDriverState *bs, BDRVVHDXState *s,
     /* Make sure log is stable on disk */
     bdrv_flush(bs);
     ret = vhdx_log_flush(bs, s, &logs);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         goto exit;
     }
 
@@ -1041,4 +1128,3 @@ int vhdx_log_write_and_flush(BlockDriverState *bs, BDRVVHDXState *s,
 exit:
     return ret;
 }
-
