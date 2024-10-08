@@ -1,0 +1,14 @@
+{
+    "files.associations": {
+        "osdep.h": "c",
+        "qemu-version.h": "c",
+        "poison.h": "c",
+        "stdarg.h": "c",
+        "stddef.h": "c",
+        "hw.h": "c",
+        "qemu-options-wrapper.h": "c",
+        "*.def": "c"
+    },
+    "C_Cpp.default.configurationProvider": "ms-vscode.makefile-tools",
+    "C_Cpp.errorSquiggles": "enabled"
+}

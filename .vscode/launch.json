@@ -1,0 +1,31 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "GDB",
+            // "program": "${workspaceFolder}/build/qemu-system-x86_64",
+            "program": "${workspaceFolder}/x86_64-softmmu/qemu-system-x86_64",
+            "cwd":"${workspaceFolder}",
+            "args":[
+                "-kernel",
+                "/opt/linux-6.8/arch/x86_64/boot/bzImage",
+                "-hda",
+                "/opt/busybox-1.36.1/rootfs.img",
+                "-append",
+                "root=/dev/sda console=ttyS0",
+                "-nographic",
+                "-enable-kvm",
+                // "-monitor",
+                // "0",
+                // "-S",
+                // "-s"
+                "-monitor","tcp:localhost:1234,server,nowait"
+            ]
+        }
+    ]
+}
