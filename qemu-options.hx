@@ -2880,6 +2880,14 @@ Use @var{bzImage} as kernel image. The kernel can be either a Linux kernel
 or in multiboot format.
 ETEXI
 
+DEF("reztest", HAS_ARG, QEMU_OPTION_reztest, \
+    "-reztest num as reztest num\n", QEMU_ARCH_ALL)
+STEXI
+@item -reztest @var{reznum}
+@findex -reztest
+Use @var{reznum} as reztest num. The num can be a int64 num.
+ETEXI
+
 DEF("append", HAS_ARG, QEMU_OPTION_append, \
     "-append cmdline use 'cmdline' as kernel command line\n", QEMU_ARCH_ALL)
 STEXI
