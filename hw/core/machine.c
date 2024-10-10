@@ -44,11 +44,15 @@ static void machine_set_kernel_irqchip(Object *obj, Visitor *v,
     OnOffSplit mode;
 
     visit_type_OnOffSplit(v, name, &mode, &err);
-    if (err) {
+    if (err)
+    {
         error_propagate(errp, err);
         return;
-    } else {
-        switch (mode) {
+    }
+    else
+    {
+        switch (mode)
+        {
         case ON_OFF_SPLIT_ON:
             ms->kernel_irqchip_allowed = true;
             ms->kernel_irqchip_required = true;
@@ -92,7 +96,8 @@ static void machine_set_kvm_shadow_mem(Object *obj, Visitor *v,
     int64_t value;
 
     visit_type_int(v, name, &value, &error);
-    if (error) {
+    if (error)
+    {
         error_propagate(errp, error);
         return;
     }
@@ -113,6 +118,21 @@ static void machine_set_kernel(Object *obj, const char *value, Error **errp)
 
     g_free(ms->kernel_filename);
     ms->kernel_filename = g_strdup(value);
+}
+
+static char *machine_get_reztest(Object *obj, Error **errp)
+{
+    MachineState *ms = MACHINE(obj);
+
+    return g_strdup(ms->reztest);
+}
+
+static void machine_set_reztest(Object *obj, const char *value, Error **errp)
+{
+    MachineState *ms = MACHINE(obj);
+
+    g_free(ms->reztest);
+    ms->reztest = g_strdup(value);
 }
 
 static char *machine_get_initrd(Object *obj, Error **errp)
@@ -194,7 +214,8 @@ static void machine_set_phandle_start(Object *obj, Visitor *v,
     int64_t value;
 
     visit_type_int(v, name, &value, &error);
-    if (error) {
+    if (error)
+    {
         error_propagate(errp, error);
         return;
     }
@@ -318,7 +339,7 @@ static bool machine_get_suppress_vmdesc(Object *obj, Error **errp)
 }
 
 static void machine_set_enforce_config_section(Object *obj, bool value,
-                                             Error **errp)
+                                               Error **errp)
 {
     MachineState *ms = MACHINE(obj);
 
@@ -345,7 +366,8 @@ static void machine_init_notify(Notifier *notifier, void *data)
     ObjectClass *oc = object_get_class(machine);
     MachineClass *mc = MACHINE_CLASS(oc);
 
-    if (mc->has_dynamic_sysbus) {
+    if (mc->has_dynamic_sysbus)
+    {
         /* Our machine can handle dynamic sysbus devices, we're all good */
         return;
     }
@@ -366,112 +388,118 @@ static void machine_class_init(ObjectClass *oc, void *data)
     mc->rom_file_has_mr = true;
 
     object_class_property_add_str(oc, "accel",
-        machine_get_accel, machine_set_accel, &error_abort);
+                                  machine_get_accel, machine_set_accel, &error_abort);
     object_class_property_set_description(oc, "accel",
-        "Accelerator list", &error_abort);
+                                          "Accelerator list", &error_abort);
 
     object_class_property_add(oc, "kernel-irqchip", "OnOffSplit",
-        NULL, machine_set_kernel_irqchip,
-        NULL, NULL, &error_abort);
+                              NULL, machine_set_kernel_irqchip,
+                              NULL, NULL, &error_abort);
     object_class_property_set_description(oc, "kernel-irqchip",
-        "Configure KVM in-kernel irqchip", &error_abort);
+                                          "Configure KVM in-kernel irqchip", &error_abort);
 
     object_class_property_add(oc, "kvm-shadow-mem", "int",
-        machine_get_kvm_shadow_mem, machine_set_kvm_shadow_mem,
-        NULL, NULL, &error_abort);
+                              machine_get_kvm_shadow_mem, machine_set_kvm_shadow_mem,
+                              NULL, NULL, &error_abort);
     object_class_property_set_description(oc, "kvm-shadow-mem",
-        "KVM shadow MMU size", &error_abort);
+                                          "KVM shadow MMU size", &error_abort);
 
     object_class_property_add_str(oc, "kernel",
-        machine_get_kernel, machine_set_kernel, &error_abort);
+                                  machine_get_kernel, machine_set_kernel, &error_abort);
     object_class_property_set_description(oc, "kernel",
-        "Linux kernel image file", &error_abort);
+                                          "Linux kernel image file", &error_abort);
+
+    object_class_property_add_str(oc, "reztest",
+                                  machine_get_reztest, machine_set_reztest, &error_abort);
+    object_class_property_set_description(oc, "reztest",
+                                          "Linux reztest ", &error_abort);
 
     object_class_property_add_str(oc, "initrd",
-        machine_get_initrd, machine_set_initrd, &error_abort);
+                                  machine_get_initrd, machine_set_initrd, &error_abort);
     object_class_property_set_description(oc, "initrd",
-        "Linux initial ramdisk file", &error_abort);
+                                          "Linux initial ramdisk file", &error_abort);
 
     object_class_property_add_str(oc, "append",
-        machine_get_append, machine_set_append, &error_abort);
+                                  machine_get_append, machine_set_append, &error_abort);
     object_class_property_set_description(oc, "append",
-        "Linux kernel command line", &error_abort);
+                                          "Linux kernel command line", &error_abort);
 
     object_class_property_add_str(oc, "dtb",
-        machine_get_dtb, machine_set_dtb, &error_abort);
+                                  machine_get_dtb, machine_set_dtb, &error_abort);
     object_class_property_set_description(oc, "dtb",
-        "Linux kernel device tree file", &error_abort);
+                                          "Linux kernel device tree file", &error_abort);
 
     object_class_property_add_str(oc, "dumpdtb",
-        machine_get_dumpdtb, machine_set_dumpdtb, &error_abort);
+                                  machine_get_dumpdtb, machine_set_dumpdtb, &error_abort);
     object_class_property_set_description(oc, "dumpdtb",
-        "Dump current dtb to a file and quit", &error_abort);
+                                          "Dump current dtb to a file and quit", &error_abort);
 
     object_class_property_add(oc, "phandle-start", "int",
-        machine_get_phandle_start, machine_set_phandle_start,
-        NULL, NULL, &error_abort);
+                              machine_get_phandle_start, machine_set_phandle_start,
+                              NULL, NULL, &error_abort);
     object_class_property_set_description(oc, "phandle-start",
-            "The first phandle ID we may generate dynamically", &error_abort);
+                                          "The first phandle ID we may generate dynamically", &error_abort);
 
     object_class_property_add_str(oc, "dt-compatible",
-        machine_get_dt_compatible, machine_set_dt_compatible, &error_abort);
+                                  machine_get_dt_compatible, machine_set_dt_compatible, &error_abort);
     object_class_property_set_description(oc, "dt-compatible",
-        "Overrides the \"compatible\" property of the dt root node",
-        &error_abort);
+                                          "Overrides the \"compatible\" property of the dt root node",
+                                          &error_abort);
 
     object_class_property_add_bool(oc, "dump-guest-core",
-        machine_get_dump_guest_core, machine_set_dump_guest_core, &error_abort);
+                                   machine_get_dump_guest_core, machine_set_dump_guest_core, &error_abort);
     object_class_property_set_description(oc, "dump-guest-core",
-        "Include guest memory in  a core dump", &error_abort);
+                                          "Include guest memory in  a core dump", &error_abort);
 
     object_class_property_add_bool(oc, "mem-merge",
-        machine_get_mem_merge, machine_set_mem_merge, &error_abort);
+                                   machine_get_mem_merge, machine_set_mem_merge, &error_abort);
     object_class_property_set_description(oc, "mem-merge",
-        "Enable/disable memory merge support", &error_abort);
+                                          "Enable/disable memory merge support", &error_abort);
 
     object_class_property_add_bool(oc, "usb",
-        machine_get_usb, machine_set_usb, &error_abort);
+                                   machine_get_usb, machine_set_usb, &error_abort);
     object_class_property_set_description(oc, "usb",
-        "Set on/off to enable/disable usb", &error_abort);
+                                          "Set on/off to enable/disable usb", &error_abort);
 
     object_class_property_add_bool(oc, "graphics",
-        machine_get_graphics, machine_set_graphics, &error_abort);
+                                   machine_get_graphics, machine_set_graphics, &error_abort);
     object_class_property_set_description(oc, "graphics",
-        "Set on/off to enable/disable graphics emulation", &error_abort);
+                                          "Set on/off to enable/disable graphics emulation", &error_abort);
 
     object_class_property_add_bool(oc, "igd-passthru",
-        machine_get_igd_gfx_passthru, machine_set_igd_gfx_passthru,
-        &error_abort);
+                                   machine_get_igd_gfx_passthru, machine_set_igd_gfx_passthru,
+                                   &error_abort);
     object_class_property_set_description(oc, "igd-passthru",
-        "Set on/off to enable/disable igd passthrou", &error_abort);
+                                          "Set on/off to enable/disable igd passthrou", &error_abort);
 
     object_class_property_add_str(oc, "firmware",
-        machine_get_firmware, machine_set_firmware,
-        &error_abort);
+                                  machine_get_firmware, machine_set_firmware,
+                                  &error_abort);
     object_class_property_set_description(oc, "firmware",
-        "Firmware image", &error_abort);
+                                          "Firmware image", &error_abort);
 
     object_class_property_add_bool(oc, "suppress-vmdesc",
-        machine_get_suppress_vmdesc, machine_set_suppress_vmdesc,
-        &error_abort);
+                                   machine_get_suppress_vmdesc, machine_set_suppress_vmdesc,
+                                   &error_abort);
     object_class_property_set_description(oc, "suppress-vmdesc",
-        "Set on to disable self-describing migration", &error_abort);
+                                          "Set on to disable self-describing migration", &error_abort);
 
     object_class_property_add_bool(oc, "enforce-config-section",
-        machine_get_enforce_config_section, machine_set_enforce_config_section,
-        &error_abort);
+                                   machine_get_enforce_config_section, machine_set_enforce_config_section,
+                                   &error_abort);
     object_class_property_set_description(oc, "enforce-config-section",
-        "Set on to enforce configuration section migration", &error_abort);
+                                          "Set on to enforce configuration section migration", &error_abort);
 }
 
 static void machine_class_base_init(ObjectClass *oc, void *data)
 {
-    if (!object_class_is_abstract(oc)) {
+    if (!object_class_is_abstract(oc))
+    {
         MachineClass *mc = MACHINE_CLASS(oc);
         const char *cname = object_class_get_name(oc);
         assert(g_str_has_suffix(cname, TYPE_MACHINE_SUFFIX));
         mc->name = g_strndup(cname,
-                            strlen(cname) - strlen(TYPE_MACHINE_SUFFIX));
+                             strlen(cname) - strlen(TYPE_MACHINE_SUFFIX));
     }
 }
 
@@ -548,7 +576,8 @@ static void machine_class_finalize(ObjectClass *klass, void *data)
 {
     MachineClass *mc = MACHINE_CLASS(klass);
 
-    if (mc->compat_props) {
+    if (mc->compat_props)
+    {
         g_array_free(mc->compat_props, true);
     }
     g_free(mc->name);
@@ -580,14 +609,17 @@ void machine_register_compat_props(MachineState *machine)
     GlobalProperty *p;
     ObjectClass *oc;
 
-    if (!mc->compat_props) {
+    if (!mc->compat_props)
+    {
         return;
     }
 
-    for (i = 0; i < mc->compat_props->len; i++) {
+    for (i = 0; i < mc->compat_props->len; i++)
+    {
         p = g_array_index(mc->compat_props, GlobalProperty *, i);
         oc = object_class_by_name(p->driver);
-        if (oc && object_class_is_abstract(oc)) {
+        if (oc && object_class_is_abstract(oc))
+        {
             /* temporary hack to make sure we do not override
              * globals set explicitly on -global: if an abstract class
              * is on compat_props, register globals for all its
@@ -599,7 +631,9 @@ void machine_register_compat_props(MachineState *machine)
              */
             object_class_foreach(machine_register_compat_for_subclass,
                                  p->driver, false, p);
-        } else {
+        }
+        else
+        {
             register_compat_prop(p->driver, p->property, p->value);
         }
     }
@@ -610,7 +644,7 @@ static const TypeInfo machine_info = {
     .parent = TYPE_OBJECT,
     .abstract = true,
     .class_size = sizeof(MachineClass),
-    .class_init    = machine_class_init,
+    .class_init = machine_class_init,
     .class_base_init = machine_class_base_init,
     .class_finalize = machine_class_finalize,
     .instance_size = sizeof(MachineState),

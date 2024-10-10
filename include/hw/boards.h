@@ -21,7 +21,7 @@ void memory_region_allocate_system_memory(MemoryRegion *mr, Object *owner,
 #define MACHINE_TYPE_NAME(machinename) (machinename TYPE_MACHINE_SUFFIX)
 
 #define TYPE_MACHINE "machine"
-#undef MACHINE  /* BSD defines it and QEMU does not use it */
+#undef MACHINE /* BSD defines it and QEMU does not use it */
 #define MACHINE(obj) \
     OBJECT_CHECK(MachineState, (obj), TYPE_MACHINE)
 #define MACHINE_GET_CLASS(obj) \
@@ -47,7 +47,8 @@ void machine_register_compat_props(MachineState *machine);
  * @arch_id - architecture-dependent CPU ID of present or possible CPU
  * @cpu - pointer to corresponding CPU object if it's present on NULL otherwise
  */
-typedef struct {
+typedef struct
+{
     uint64_t arch_id;
     struct CPUState *cpu;
 } CPUArchId;
@@ -57,7 +58,8 @@ typedef struct {
  * @len - number of @CPUArchId items in @cpus array
  * @cpus - array of present or possible CPUs for current machine configuration
  */
-typedef struct {
+typedef struct
+{
     int len;
     CPUArchId cpus[0];
 } CPUArchIdList;
@@ -93,7 +95,8 @@ typedef struct {
  *    such a CPU will fail.) Note that changing this is a migration
  *    compatibility break for the machine.
  */
-struct MachineClass {
+struct MachineClass
+{
     /*< private >*/
     ObjectClass parent_class;
     /*< public >*/
@@ -111,16 +114,16 @@ struct MachineClass {
     BlockInterfaceType block_default_type;
     int units_per_default_bus;
     int max_cpus;
-    unsigned int no_serial:1,
-        no_parallel:1,
-        use_virtcon:1,
-        use_sclp:1,
-        no_floppy:1,
-        no_cdrom:1,
-        no_sdcard:1,
-        has_dynamic_sysbus:1,
-        pci_allow_0_address:1,
-        legacy_fw_cfg_order:1;
+    unsigned int no_serial : 1,
+        no_parallel : 1,
+        use_virtcon : 1,
+        use_sclp : 1,
+        no_floppy : 1,
+        no_cdrom : 1,
+        no_sdcard : 1,
+        has_dynamic_sysbus : 1,
+        pci_allow_0_address : 1,
+        legacy_fw_cfg_order : 1;
     int is_default;
     const char *default_machine_opts;
     const char *default_boot_order;
@@ -142,7 +145,8 @@ struct MachineClass {
 /**
  * MachineState:
  */
-struct MachineState {
+struct MachineState
+{
     /*< private >*/
     Object parent_obj;
     Notifier sysbus_notifier;
@@ -171,46 +175,48 @@ struct MachineState {
 
     ram_addr_t ram_size;
     ram_addr_t maxram_size;
-    uint64_t   ram_slots;
+    uint64_t ram_slots;
     const char *boot_order;
     char *kernel_filename;
     char *kernel_cmdline;
     char *initrd_filename;
     const char *cpu_model;
     AccelState *accelerator;
+    char *reztest;
 };
 
-#define DEFINE_MACHINE(namestr, machine_initfn) \
+#define DEFINE_MACHINE(namestr, machine_initfn)                          \
     static void machine_initfn##_class_init(ObjectClass *oc, void *data) \
-    { \
-        MachineClass *mc = MACHINE_CLASS(oc); \
-        machine_initfn(mc); \
-    } \
-    static const TypeInfo machine_initfn##_typeinfo = { \
-        .name       = MACHINE_TYPE_NAME(namestr), \
-        .parent     = TYPE_MACHINE, \
-        .class_init = machine_initfn##_class_init, \
-    }; \
-    static void machine_initfn##_register_types(void) \
-    { \
-        type_register_static(&machine_initfn##_typeinfo); \
-    } \
+    {                                                                    \
+        MachineClass *mc = MACHINE_CLASS(oc);                            \
+        machine_initfn(mc);                                              \
+    }                                                                    \
+    static const TypeInfo machine_initfn##_typeinfo = {                  \
+        .name = MACHINE_TYPE_NAME(namestr),                              \
+        .parent = TYPE_MACHINE,                                          \
+        .class_init = machine_initfn##_class_init,                       \
+    };                                                                   \
+    static void machine_initfn##_register_types(void)                    \
+    {                                                                    \
+        type_register_static(&machine_initfn##_typeinfo);                \
+    }                                                                    \
     type_init(machine_initfn##_register_types)
 
-#define SET_MACHINE_COMPAT(m, COMPAT) \
-    do {                              \
-        int i;                        \
-        static GlobalProperty props[] = {       \
-            COMPAT                              \
-            { /* end of list */ }               \
-        };                                      \
-        if (!m->compat_props) { \
+#define SET_MACHINE_COMPAT(m, COMPAT)                                    \
+    do                                                                   \
+    {                                                                    \
+        int i;                                                           \
+        static GlobalProperty props[] = {                                \
+            COMPAT{/* end of list */}};                                  \
+        if (!m->compat_props)                                            \
+        {                                                                \
             m->compat_props = g_array_new(false, false, sizeof(void *)); \
-        } \
-        for (i = 0; props[i].driver != NULL; i++) {    \
-            GlobalProperty *prop = &props[i];          \
-            g_array_append_val(m->compat_props, prop); \
-        }                                              \
+        }                                                                \
+        for (i = 0; props[i].driver != NULL; i++)                        \
+        {                                                                \
+            GlobalProperty *prop = &props[i];                            \
+            g_array_append_val(m->compat_props, prop);                   \
+        }                                                                \
     } while (0)
 
 #endif

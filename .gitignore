@@ -116,3 +116,4 @@ TAGS
 docker-src.*
 *~
 .vscode/
+.vscode/launch.json

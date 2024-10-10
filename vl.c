@@ -3674,6 +3674,10 @@ int main(int argc, char **argv, char **envp)
                 qemu_opts_set(qemu_find_opts("machine"), 0, "kernel", optarg,
                               &error_abort);
                 break;
+            case QEMU_OPTION_reztest:
+                qemu_opts_set(qemu_find_opts("machine"), 0, "reztest", optarg,
+                              &error_abort);
+                break;
             case QEMU_OPTION_initrd:
                 qemu_opts_set(qemu_find_opts("machine"), 0, "initrd", optarg,
                               &error_abort);
